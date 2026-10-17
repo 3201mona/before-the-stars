@@ -20,7 +20,12 @@
     CMD_BRI_DUNMORE:['最後のバージニア王室総督。1774年には植民地民兵を率いて西部へ出兵した。','1775年、ウィリアムズバーグの火薬を押収し、王党派戦力の結集を図る。','のちに戒厳令を布き、英軍参加を条件に被奴隷者らへ自由を約した。']
   };
   let state=E.hydrateCanonicalExtensions(window.PHASE2_STATE_SEED,window.CITY_COMMAND_DATA,window.PHASE2_CONFIG),selectedCityId=null,openedArmyId=null,expandedCityId=null,pendingArmyAction=null,pendingEquipmentGain=10;
-  try{const saved=JSON.parse(storage.getItem(SAVE_KEY)||'null'),migrated=saved?.schema_version===state.schema_version?E.normalizeGarrisonState(saved,window.CITY_COMMAND_DATA,window.PHASE2_CONFIG):null;if(migrated&&E.validateState(migrated,Object.keys(window.CITY_COMMAND_DATA.cities)).passed)state=migrated;}catch(_error){}
+  try{const saved=JSON.parse(storage.getItem(SAVE_KEY)||'null'),migrated=saved?.schema_version===state.schema_version?E.normalizeGarrisonState(saved,window.CITY_COMMAND_DATA,window.PHASE2_CONFIG):null;if(migrated){
+    // Repair only negative command balances caused by the older civil-action bug. Never reset
+    // a valid long-running campaign because SECURITY spent below zero in a previous session.
+    for(const faction of ['PATRIOT','BRITISH']){const balance=migrated.factions?.[faction]?.commands_remaining;if(Number.isInteger(balance)&&balance<0){migrated.factions[faction].commands_remaining=0;E.appendAction(migrated,{type:'NEGATIVE_COMMAND_BUDGET_REPAIRED',faction,previous_balance:balance,corrected_balance:0});}}
+    if(E.validateState(migrated,Object.keys(window.CITY_COMMAND_DATA.cities)).passed)state=migrated;
+  }}catch(_error){}
   try{const pending=storage.getItem(PENDING_FACTION_KEY);if(['PATRIOT','BRITISH'].includes(pending)){state.current_faction=pending;state.player_faction=pending;storage.removeItem(PENDING_FACTION_KEY);storage.setItem(STARTED_KEY,'1');}}catch(_error){}
   try{const pendingSeed=Number(storage.getItem(PENDING_RANDOM_SEED_KEY));if(Number.isInteger(pendingSeed)&&pendingSeed>0){state.random={algorithm:'mulberry32',initial_seed:pendingSeed>>>0,state:pendingSeed>>>0,calls:0};storage.removeItem(PENDING_RANDOM_SEED_KEY);}}catch(_error){}
   state=E.normalizeGarrisonState(state,window.CITY_COMMAND_DATA,window.PHASE2_CONFIG);

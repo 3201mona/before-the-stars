@@ -62,12 +62,12 @@
     const total=rows.reduce((sum,row)=>sum+Number(row.manpower||0),0);
     return total?rows.reduce((sum,row)=>sum+Number(row.manpower||0)*Number(row[key]??fallback),0)/total:fallback;
   }
-  function forceSummary(state,armyIds,garrison,commanderId,config,cityImportance=1,isAttacking=false){
+  function forceSummary(state,armyIds,garrison,commanderId,config,cityImportance=1,isAttacking=false,allowEmpty=false){
     const armies=(armyIds||[]).map(id=>state.field_armies[id]).filter(Boolean);
     const rows=armies.map(army=>({...army}));
     if(garrison?.manpower>0)rows.push({id:garrison.id||'GARRISON',manpower:garrison.manpower,morale:garrison.morale??config.garrison_defaults.morale,training:garrison.training??config.garrison_defaults.training,equipment:garrison.equipment??config.garrison_defaults.equipment,is_garrison:true});
     const manpower=rows.reduce((sum,row)=>sum+Number(row.manpower||0),0);
-    if(manpower<=0)fail('BATTLE_FORCE_EMPTY');
+    if(manpower<=0){if(!allowEmpty)fail('BATTLE_FORCE_EMPTY');return{army_ids:armies.map(a=>a.id),manpower:0,average:{morale:0,training:0,equipment:0},quality:0,command:1,battlefield_tactics:1,coordination:1,defense:1,commander_id:commanderId,commander_name:state.commanders?.[commanderId]?.name||'戦線離脱',garrison_manpower:0,individual_details:[]};}
     const average={morale:weightedAverage(rows,'morale'),training:weightedAverage(rows,'training'),equipment:weightedAverage(rows,'equipment')};
     const commander=state.commanders?.[commanderId]||null;
     const quality=qualityFactor(average);
@@ -314,25 +314,30 @@
     const continueMinimum=Number(config.attack_continue_minimum_manpower??50);
     const survivingAttackers=battle.attacker_army_ids.map(id=>next.field_armies?.[id]).filter(Boolean);
     const combatAttackerIds=battle.attacker_army_ids.filter(id=>{const army=next.field_armies?.[id];return army&&Number(army.manpower||0)>=continueMinimum&&Number(army.morale||0)>=10;});
-    if(!combatAttackerIds.length)fail('BATTLE_ATTACK_FORCE_UNABLE_TO_CONTINUE');
+    // Monthly supply/morale changes can exhaust an existing front before its next round.
+    // Resolve through the ordinary defeat/retreat path without inventing another combat.
+    const combatSkipped=combatAttackerIds.length===0;
     const garrisonMoraleBefore=garrison?.faction===battle.defender_faction&&garrison.manpower>0?clamp(Number(next.battles[battleId].garrison_morale??config.garrison_defaults?.morale??60),0,100):null,activeGarrison=garrisonMoraleBefore===null?null:{...garrison,morale:garrisonMoraleBefore};
     const activeAttackerLeaderId=next.field_armies[battle.attacker_leader_army_id]?battle.attacker_leader_army_id:selectBattlefieldLeader(next,combatAttackerIds),attackerLeaderArmy=activeAttackerLeaderId?next.field_armies[activeAttackerLeaderId]:null;
-    const attacker=forceSummary(next,combatAttackerIds,null,attackerLeaderArmy?.commander_id,config,city.politics?.political_importance||1,true);
+    const attacker=forceSummary(next,combatSkipped?battle.attacker_army_ids:combatAttackerIds,null,attackerLeaderArmy?.commander_id,config,city.politics?.political_importance||1,true,true);
     const activeDefenderLeaderId=next.field_armies[battle.defender_leader_army_id]?battle.defender_leader_army_id:selectBattlefieldLeader(next,battle.defender_army_ids),defender=forceSummary(next,battle.defender_army_ids,activeGarrison,activeDefenderLeaderId?next.field_armies[activeDefenderLeaderId]?.commander_id:null,config,city.politics?.political_importance||1,false);
     const attackTactic=tacticRecord(config,playerTactic),defenseTactic=tacticRecord(config,next.battles[battleId].tactic[battle.defender_faction]);
+    let attackScore=0,defenseScore=0,ratio=0,band='defeat',attackerIndex='defeat',defenderIndex='victory',attackerLossRate=0,defenderLossRate=0,attackerLoss=0,defenderLoss=0;
+    if(!combatSkipped){
     let roll=randomValue(next,armyEngine);next=roll.state;const attackRoll=(attackTactic.random_min??config.random_min)+((attackTactic.random_max??config.random_max)-(attackTactic.random_min??config.random_min))*roll.value;
     roll=randomValue(next,armyEngine);next=roll.state;const defenseRoll=(defenseTactic.random_min??config.random_min)+((defenseTactic.random_max??config.random_max)-(defenseTactic.random_min??config.random_min))*roll.value;
-    const attackScore=basePower(attacker,config,false)*attackTactic.power*attackRoll;
-    const defenseScore=basePower(defender,config,true)*defenseTactic.power*defenseRoll;
-    const ratio=attackScore/defenseScore,band=resultBand(ratio,config),attackerIndex=lossBandForSide(band,'attacker'),defenderIndex=lossBandForSide(band,'defender');
+    attackScore=basePower(attacker,config,false)*attackTactic.power*attackRoll;
+    defenseScore=basePower(defender,config,true)*defenseTactic.power*defenseRoll;
+    ratio=attackScore/defenseScore;band=resultBand(ratio,config);attackerIndex=lossBandForSide(band,'attacker');defenderIndex=lossBandForSide(band,'defender');
     const pressureOnAttacker=defenseScore/(attackScore+defenseScore),pressureOnDefender=attackScore/(attackScore+defenseScore);
-    const attackerLossRate=clamp((config.casualty.base+config.casualty.pressure*pressureOnAttacker)*config.casualty.band_multiplier[attackerIndex]*attackTactic.loss_taken*defenseTactic.damage_dealt,config.casualty.minimum,config.casualty.maximum);
-    const defenderLossRate=clamp((config.casualty.base+config.casualty.pressure*pressureOnDefender)*config.casualty.band_multiplier[defenderIndex]*defenseTactic.loss_taken*attackTactic.damage_dealt,config.casualty.minimum,config.casualty.maximum);
-    const attackerLoss=Math.min(attacker.manpower,round100(attacker.manpower*attackerLossRate)),defenderLoss=Math.min(defender.manpower,round100(defender.manpower*defenderLossRate));
+    attackerLossRate=clamp((config.casualty.base+config.casualty.pressure*pressureOnAttacker)*config.casualty.band_multiplier[attackerIndex]*attackTactic.loss_taken*defenseTactic.damage_dealt,config.casualty.minimum,config.casualty.maximum);
+    defenderLossRate=clamp((config.casualty.base+config.casualty.pressure*pressureOnDefender)*config.casualty.band_multiplier[defenderIndex]*defenseTactic.loss_taken*attackTactic.damage_dealt,config.casualty.minimum,config.casualty.maximum);
+    attackerLoss=Math.min(attacker.manpower,round100(attacker.manpower*attackerLossRate));defenderLoss=Math.min(defender.manpower,round100(defender.manpower*defenderLossRate));
+    }
     const attackerArmyLoss=Math.min(attackerLoss,attacker.manpower),defenderFieldShare=defender.manpower?defender.army_ids.reduce((sum,id)=>sum+(next.field_armies[id]?.manpower||0),0)/defender.manpower:0,defenderArmyLoss=Math.min(defenderLoss,round100(defenderLoss*defenderFieldShare));
     const attackerLossDetails=distributeArmyLosses(next,combatAttackerIds,attackerArmyLoss),defenderLossDetails=distributeArmyLosses(next,battle.defender_army_ids,defenderArmyLoss);
     const garrisonLoss=Math.min(activeGarrison?.manpower||0,Math.max(0,defenderLoss-defenderArmyLoss));if(activeGarrison)next.garrisons[battle.city_id].manpower=Math.max(0,activeGarrison.manpower-garrisonLoss);
-    const attackerMorale=moraleDelta(attackerIndex,attackerLossRate,config),defenderMorale=moraleDelta(defenderIndex,defenderLossRate,config);applyMorale(next,battle.attacker_army_ids,attackerMorale);applyMorale(next,battle.defender_army_ids,defenderMorale);
+    const attackerMorale=combatSkipped?0:moraleDelta(attackerIndex,attackerLossRate,config),defenderMorale=combatSkipped?0:moraleDelta(defenderIndex,defenderLossRate,config);applyMorale(next,battle.attacker_army_ids,attackerMorale);applyMorale(next,battle.defender_army_ids,defenderMorale);
     const garrisonMoraleAfter=activeGarrison?clamp(Math.round(garrisonMoraleBefore+defenderMorale),0,100):null;if(activeGarrison)next.battles[battleId].garrison_morale=garrisonMoraleAfter;
     let incidents=[],destroyed=[];
     for(const [ids,reason] of [[battle.attacker_army_ids,'MORALE_ROUT'],[battle.defender_army_ids,'MORALE_ROUT'],[battle.attacker_army_ids,'UNIT_DESTROYED'],[battle.defender_army_ids,'UNIT_DESTROYED']]){
@@ -366,7 +371,7 @@
       const nextAttackerLeader=selectBattlefieldLeader(next,attackCapableRemaining),survivingDefenders=battle.defender_army_ids.filter(id=>next.field_armies?.[id]&&Number(next.field_armies[id].manpower||0)>0),nextDefenderLeader=selectBattlefieldLeader(next,survivingDefenders);next.battles[battleId].attacker_leader_army_id=nextAttackerLeader;next.battles[battleId].defender_leader_army_id=nextDefenderLeader;next.battles[battleId].battlefield_commander={[battle.attacker_faction]:nextAttackerLeader?next.field_armies[nextAttackerLeader]?.commander_id:null,[battle.defender_faction]:nextDefenderLeader?next.field_armies[nextDefenderLeader]?.commander_id:null};next.battles[battleId].status='awaiting_continuation';next.battles[battleId].calculation_status='AWAITING_CONTINUE_OR_WITHDRAW';
     }
     const loot=decisive&&attackerWon?{food:Number(city.stockpile?.FOOD)||0,materials:Number(city.stockpile?.MATERIALS)||0,retained_in_city:true}:null;
-    const resolution={month:`${next.calendar.year}-${String(next.calendar.month).padStart(2,'0')}`,ratio,attack_score:attackScore,defense_score:defenseScore,band:effectiveBand,attacker_tactic:playerTactic,defender_tactic:next.battles[battleId].tactic[battle.defender_faction],attacker_commander_id:battle.battlefield_commander?.[battle.attacker_faction]||null,defender_commander_id:battle.battlefield_commander?.[battle.defender_faction]||null,attacker_loss:attackerLoss,defender_loss:defenderLoss,garrison_loss:garrisonLoss,garrison_morale_before:garrisonMoraleBefore,garrison_morale_after:garrisonMoraleAfter,attacker_loss_rate:attackerLossRate,defender_loss_rate:defenderLossRate,attacker_morale_delta:attackerMorale,defender_morale_delta:defenderMorale,attacker_loss_details:attackerLossDetails,defender_loss_details:defenderLossDetails,attack_capable_army_ids_after:attackCapableRemaining,attack_force_exhausted:attackCapableRemaining.length===0&&defenderRemaining>0,incidents,destroyed,retreat,loot,decisive};
+    const resolution={...(combatSkipped?{combat_skipped:true,reason:'ATTACK_FORCE_UNABLE_TO_CONTINUE'}:{}),month:`${next.calendar.year}-${String(next.calendar.month).padStart(2,'0')}`,ratio,attack_score:attackScore,defense_score:defenseScore,band:effectiveBand,attacker_tactic:playerTactic,defender_tactic:next.battles[battleId].tactic[battle.defender_faction],attacker_commander_id:battle.battlefield_commander?.[battle.attacker_faction]||null,defender_commander_id:battle.battlefield_commander?.[battle.defender_faction]||null,attacker_loss:attackerLoss,defender_loss:defenderLoss,garrison_loss:garrisonLoss,garrison_morale_before:garrisonMoraleBefore,garrison_morale_after:garrisonMoraleAfter,attacker_loss_rate:attackerLossRate,defender_loss_rate:defenderLossRate,attacker_morale_delta:attackerMorale,defender_morale_delta:defenderMorale,attacker_loss_details:attackerLossDetails,defender_loss_details:defenderLossDetails,attack_capable_army_ids_after:attackCapableRemaining,attack_force_exhausted:attackCapableRemaining.length===0&&defenderRemaining>0,incidents,destroyed,retreat,loot,decisive};
     next.battles[battleId].result_band=effectiveBand;next.battles[battleId].last_resolution=copy(resolution);next.battles[battleId].history.push(copy(resolution));if(decisive)delete next.battles[battleId].garrison_morale;
     armyEngine.appendAction(next,{type:'BATTLE_RESOLVED',battle_id:battleId,city_id:battle.city_id,result_band:effectiveBand,attacker_loss:attackerLoss,defender_loss:defenderLoss,decisive,incidents:copy(incidents)});
     return{state:next,battle:copy(next.battles[battleId]),resolution,attacker,defender};
