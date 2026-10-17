@@ -1,0 +1,14 @@
+Versilian Community Sample Library (VCSL)
+Developer: Versilian Studios LLC
+License: Creative Commons Zero (CC0 1.0 Universal)
+
+The major-event BGM uses these VCSL Bass Drum 1 samples within its rendered audio:
+- VCSL_BDrumNew_hit_v7_rr2_Sum.wav
+- VCSL_BDrumNew_hit_v7_rr1_Sum.wav
+The source sample files themselves are not included in this public build.
+
+Official source: https://versilian-studios.com/vcsl/
+CC0 legal code: https://creativecommons.org/publicdomain/zero/1.0/legalcode
+Verified against the official VCSL page on 2026-10-17.
+The collection may be used in commercial software without royalties or attribution.
+This CC0 status applies to VCSL samples, not to the entire game.
