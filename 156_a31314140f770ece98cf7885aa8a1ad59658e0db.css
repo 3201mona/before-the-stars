@@ -1,0 +1,42 @@
+/* Military control uses shape; political support remains the light map colors. */
+#game-map .unit-display.selected{fill:var(--support-color)!important}
+/* Display regions are masked full-map rectangles. Outline the actual city path. */
+body.support-on #game-map path.unit-click.selected{stroke:#ffe183!important;stroke-width:2.5!important;stroke-dasharray:none!important;vector-effect:non-scaling-stroke}
+.strategy-control-layer,.strategy-route-layer{pointer-events:none}
+.strategy-route-layer path{stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.strategy-battle-marker{pointer-events:all;cursor:pointer;outline:none}
+.strategy-battle-marker:hover .battle-hit,.strategy-battle-marker:focus .battle-hit{stroke:#ffe183;stroke-width:2}
+.battle-hit{fill:#071620;fill-opacity:.83;stroke:#f3eed9;stroke-width:1.3}
+.strategy-map-legend{position:fixed;z-index:3;pointer-events:none;padding:4px 7px;background:#081722e8;border:1px solid #b38c36;font-size:11px;line-height:1.5;color:#f4eedb;max-width:calc(100% - 22px)}
+.strategy-map-legend[hidden]{display:none!important}
+.strategy-map-legend i{display:inline-block;width:9px;height:9px;margin:0 3px 0 7px;border:1px solid #fff;vertical-align:middle}
+.strategy-map-legend i:first-child{margin-left:0}
+.strategy-map-legend .strategic-blue{background:#1559b7}.strategy-map-legend .strategic-red{background:#d41435}
+.strategy-battle-overlay{position:fixed;z-index:150;overflow:hidden;pointer-events:none;contain:layout paint}
+.strategy-battle-overlay[hidden],.strategy-battle-card[hidden]{display:none!important}
+.strategy-battle-connector{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;background:transparent}
+.strategy-battle-card{position:absolute;box-sizing:border-box;width:310px;padding:7px 9px;border:3px double #cfaa45;background:linear-gradient(#152936,#07141d);color:#f6efdc;box-shadow:0 3px 12px #000b;pointer-events:auto;overflow:auto;font-size:13px;line-height:1.3}
+.strategy-battle-card header{display:flex;align-items:center;gap:6px;border-bottom:1px solid #596e79;padding-bottom:4px;margin-bottom:4px;color:#ffdc78;font-size:14px;font-weight:800}
+.strategy-battle-card h2{font:inherit;margin:0;flex:1;min-width:0;overflow-wrap:anywhere}
+.strategy-battle-close{flex:0 0 23px;width:23px;height:23px;padding:0!important;line-height:18px;border:1px solid #cfaa45;background:#07141d;color:#ffdc78;font-size:20px;cursor:pointer}
+.strategy-battle-month{margin-bottom:4px;font-weight:700}
+.strategy-battle-forces{display:grid;gap:3px}
+.strategy-battle-force{display:grid;grid-template-columns:14px minmax(0,1fr) 82px;gap:6px;align-items:center;min-height:34px;border-top:1px solid #3d5360;padding-top:4px}
+.strategy-faction-square{width:13px;height:13px;border:1px solid #fff;box-sizing:border-box}
+.strategy-faction-square.patriot{background:#2768ff}.strategy-faction-square.british{background:#f23943}
+.strategy-battle-flags{display:grid;grid-template-columns:repeat(auto-fill,22px);grid-auto-rows:34px;gap:0;justify-content:start;align-content:start;min-height:34px}
+.strategy-battle-flag{display:block;width:22px;height:34px;overflow:visible;background:transparent}
+.strategy-battle-flag .flag-pole{stroke:#25170d;stroke-width:3}
+.strategy-battle-flag .flag{stroke:#f2d789;stroke-width:2}
+.strategy-battle-flag.patriot .flag{fill:#235ca8}.strategy-battle-flag.british .flag{fill:#b52831}
+.strategy-battle-flag .flag-mark{fill:#f7edc1;font-size:12px;font-weight:900;text-anchor:middle}
+.strategy-battle-flag.theater-commander .flag{stroke:#e5ebee;stroke-width:3}
+.strategy-battle-flag.commander-in-chief .flag{stroke:#ffd94d;stroke-width:5}
+.strategy-battle-flag .chief-star{fill:#ffe45f;stroke:#3a2500;stroke-width:1.5}
+.strategy-battle-flag .theater-star{fill:#e5ebee;stroke:#31383d;stroke-width:1.2}
+.strategy-battle-total{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-size:13px}
+.strategy-battle-card.opening{animation:battle-card-open 160ms 160ms both}
+.strategy-battle-connector.opening path{animation:battle-line-open 160ms both}
+@keyframes battle-card-open{from{opacity:0;transform:scale(.86)}to{opacity:1;transform:scale(1)}}
+@keyframes battle-line-open{from{stroke-dashoffset:var(--line-length)}to{stroke-dashoffset:0}}
+@media(prefers-reduced-motion:reduce){.strategy-battle-card.opening,.strategy-battle-connector.opening path{animation:none!important}}

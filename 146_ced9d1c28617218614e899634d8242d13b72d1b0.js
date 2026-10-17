@@ -1,0 +1,100 @@
+(function(){
+  'use strict';
+  if(!window.POLITICAL_PHASE_CONFIG)throw new Error('POLITICAL_PHASE_CONFIG_MISSING');
+  Object.assign(window.POLITICAL_PHASE_CONFIG.friendly_city_transition,{
+    abandonment_support_penalty:-3,
+    abandonment_cooperation_penalty:-5,
+    major_damage_support_penalty:-3,
+    major_damage_cooperation_penalty:-5
+  });
+  const proposalSets={
+    PATRIOT:[
+      {id:'PAT_BUDGET_SMALL',category:'BUDGET',name:'軍事予算要求（小）',required_votes:1,base_approval:95,effect_type:'BUDGET_REQUEST',military_funds_grant:300,national_budget_cost:8,effect_note:'軍資金を300追加します。'},
+      {id:'PAT_BUDGET_STANDARD',category:'BUDGET',name:'軍事予算要求（中）',required_votes:2,base_approval:80,effect_type:'BUDGET_REQUEST',military_funds_grant:700,national_budget_cost:18,effect_note:'軍資金を700追加します。'},
+      {id:'PAT_BUDGET_LARGE',category:'BUDGET',name:'軍事予算要求（大）',required_votes:4,base_approval:60,effect_type:'BUDGET_REQUEST',military_funds_grant:1200,national_budget_cost:32,effect_note:'軍資金を1,200追加します。'},
+      {"id":"PAT_ADDITIONAL_MILITARY_SUPPORT_SMALL","category":"SUPPLY","name":"軍需物資支援（小）","required_votes":1,"base_approval":95,"effect_type":"DOMESTIC_SUPPLY_SUPPORT","food_amount":450,"materials_amount":150,"effect_note":"食糧450・物資150を選択した軍事支配都市へ支援します。備蓄容量を超える分は廃棄されます。"},
+      {"id":"PAT_ADDITIONAL_MILITARY_SUPPORT_STANDARD","category":"SUPPLY","name":"軍需物資支援（中）","required_votes":2,"base_approval":80,"effect_type":"DOMESTIC_SUPPLY_SUPPORT","food_amount":1200,"materials_amount":450,"effect_note":"食糧1,200・物資450を選択した軍事支配都市へ支援します。備蓄容量を超える分は廃棄されます。"},
+      {"id":"PAT_ADDITIONAL_MILITARY_SUPPORT_LARGE","category":"SUPPLY","name":"軍需物資支援（大）","required_votes":4,"base_approval":60,"effect_type":"DOMESTIC_SUPPLY_SUPPORT","food_amount":2800,"materials_amount":1800,"effect_note":"食糧2,800・物資1,800を選択した軍事支配都市へ支援します。備蓄容量を超える分は廃棄されます。"},
+      {id:'PAT_GENERAL_DISPATCH',category:'PERSONNEL',name:'将軍派遣',required_votes:2,base_approval:80,effect_type:'GENERAL_DISPATCH',effect_note:'派遣可能な人物から1名を無作為に選び、指揮官予備役へ追加します。外国出身・外国軍歴の人物では外交関係が進展する場合があります。'},
+      {id:'PAT_THEATER_APPOINTMENT',category:'PERSONNEL',name:'方面軍司令官任命',required_votes:4,base_approval:60,effect_type:'THEATER_APPOINTMENT',effect_note:'通常指揮官を中将・方面軍司令官へ任命します。'},
+      {id:'PAT_MOBILIZATION',category:'PERSONNEL',name:'動員令',required_votes:3,base_approval:70,effect_type:'DOMESTIC_MOBILIZATION',amount:3000,effect_note:'動員可能数を3,000名増加させます。'},
+      {id:'PAT_DUTCH_TRADE',category:'FOREIGN',name:'対蘭戦時通商交渉',required_votes:3,base_approval:70,effect_type:'DIPLOMACY',country:'NETHERLANDS',amount:10,effect_note:'オランダとの戦時通商交渉を進めます。'},
+      {id:'PAT_SPANISH_AID',category:'FOREIGN',name:'対西相互援助交渉',required_votes:4,base_approval:60,effect_type:'DIPLOMACY',country:'SPAIN',amount:12,effect_note:'スペインとの相互援助交渉を進めます。'},
+      {id:'PAT_FRENCH_SUPPORT',category:'FOREIGN',name:'対仏軍事支援交渉',required_votes:5,base_approval:50,effect_type:'DIPLOMACY',country:'FRANCE',amount:15,effect_note:'フランスとの軍事支援交渉を進めます。'}
+    ],
+    BRITISH:[
+      {id:'BRI_BUDGET_SMALL',category:'BUDGET',name:'軍事予算要求（小）',required_votes:1,base_approval:95,effect_type:'BUDGET_REQUEST',military_funds_grant:300,national_budget_cost:8,effect_note:'軍資金を300追加します。'},
+      {id:'BRI_BUDGET_STANDARD',category:'BUDGET',name:'軍事予算要求（中）',required_votes:2,base_approval:80,effect_type:'BUDGET_REQUEST',military_funds_grant:700,national_budget_cost:18,effect_note:'軍資金を700追加します。'},
+      {id:'BRI_BUDGET_LARGE',category:'BUDGET',name:'軍事予算要求（大）',required_votes:4,base_approval:60,effect_type:'BUDGET_REQUEST',military_funds_grant:1200,national_budget_cost:32,effect_note:'軍資金を1,200追加します。'},
+      {"id":"BRI_ADDITIONAL_MILITARY_SUPPORT_SMALL","category":"SUPPLY","name":"軍需物資支援（小）","required_votes":1,"base_approval":95,"effect_type":"OVERSEAS_SUPPLY_BOOST","food_amount":450,"materials_amount":150,"effect_note":"食糧450・物資150を次回本国補給に加算します。実際の到着量は制海権で変動します。"},
+      {"id":"BRI_ADDITIONAL_MILITARY_SUPPORT_STANDARD","category":"SUPPLY","name":"軍需物資支援（中）","required_votes":2,"base_approval":80,"effect_type":"OVERSEAS_SUPPLY_BOOST","food_amount":1200,"materials_amount":450,"effect_note":"食糧1,200・物資450を次回本国補給に加算します。実際の到着量は制海権で変動します。"},
+      {"id":"BRI_ADDITIONAL_MILITARY_SUPPORT_LARGE","category":"SUPPLY","name":"軍需物資支援（大）","required_votes":4,"base_approval":60,"effect_type":"OVERSEAS_SUPPLY_BOOST","food_amount":2800,"materials_amount":1800,"effect_note":"食糧2,800・物資1,800を次回本国補給に加算します。実際の到着量は制海権で変動します。"},
+      {id:'BRI_GENERAL_DISPATCH',category:'PERSONNEL',name:'将軍派遣',required_votes:2,base_approval:80,effect_type:'GENERAL_DISPATCH',effect_note:'派遣可能な人物から1名を無作為に選び、指揮官予備役へ追加します。外国出身・外国軍歴の人物では外交関係が進展する場合があります。'},
+      {id:'BRI_THEATER_APPOINTMENT',category:'PERSONNEL',name:'方面軍司令官任命',required_votes:4,base_approval:60,effect_type:'THEATER_APPOINTMENT',effect_note:'通常指揮官を中将・方面軍司令官へ任命します。'},
+      {id:'BRI_MOBILIZATION',category:'PERSONNEL',name:'正規軍増派',required_votes:3,base_approval:70,effect_type:'OVERSEAS_MOBILIZATION',amount:3000,effect_note:'本国から3,000名を増派します。到着人数は制海権の影響を受け、動員可能数へ加算されます。'},
+      {id:'BRI_DUTCH_TRADE',category:'FOREIGN',name:'対蘭通商統制',required_votes:3,base_approval:70,effect_type:'DIPLOMACY',country:'NETHERLANDS',amount:10,effect_note:'オランダへの外交工作を行い、独立派への支援拡大を牽制します。'},
+      {id:'BRI_SPANISH_AID',category:'FOREIGN',name:'対西外交牽制',required_votes:4,base_approval:60,effect_type:'DIPLOMACY',country:'SPAIN',amount:12,effect_note:'スペインへの外交工作を行い、独立派への支援拡大を牽制します。'},
+      {id:'BRI_FRENCH_SUPPORT',category:'FOREIGN',name:'対仏参戦阻止交渉',required_votes:5,base_approval:50,effect_type:'DIPLOMACY',country:'FRANCE',amount:15,effect_note:'フランスへの外交工作を行い、独立派への支援・参戦を牽制します。'},
+      {id:'BRI_GERMAN_AUXILIARIES',category:'FOREIGN',name:'ドイツ諸侯傭兵交渉',required_votes:1,base_approval:65,effect_type:'GERMAN_AUXILIARY_DIPLOMACY',amount:12,effect_note:'ドイツ諸侯との補助兵契約を進めます。交渉段階に応じて人的支援・補助軍派遣が行われます。'}
+    ]
+  };
+  window.POLITICAL_PHASE_CONFIG.proposals=proposalSets;
+  window.POLITICAL_PHASE_CONFIG.proposal_categories=[
+    {id:'BUDGET',label:'軍事予算'},
+    {id:'SUPPLY',label:'軍需物資支援'},
+    {id:'PERSONNEL',label:'人事関連'},
+    {id:'FOREIGN',label:'対外国交渉'}
+  ];
+  window.POLITICAL_PHASE_CONFIG.proposal_limit_per_political_phase=3;
+  window.POLITICAL_PHASE_CONFIG.one_proposal_per_political_phase=false;
+
+  window.POLITICAL_PHASE_CONFIG.national_indicators.proposal_trust_change={normal_approved:0,normal_rejected:0,high_difficulty_approved:0,high_difficulty_rejected:0,high_difficulty_base_approval_max:60};
+  window.POLITICAL_PHASE_CONFIG.war_will_rules={
+    battle_change:{DECISIVE_VICTORY:2,VICTORY:1,DEFEAT:-1,DECISIVE_DEFEAT:-2},
+    battle_quarterly_cap:6,
+    period_achievement_change:1,
+    period_stagnation_change:-1,
+    foreign_stage_change:2,
+    shortage_per_resource_city:-1,
+    national_budget_shortage_change:-1,
+    manpower_shortage_change:-1,
+    national_budget_shortage_min_level:4,
+    manpower_shortage_min_level:4
+  };
+  window.POLITICAL_PHASE_CONFIG.diplomatic_stage_trust_change=1;
+  window.POLITICAL_PHASE_CONFIG.war_will_rules=Object.assign({},window.POLITICAL_PHASE_CONFIG.war_will_rules||{},{mobilization_approval_change:-5});
+
+  window.POLITICAL_PHASE_CONFIG.foreign_aid={
+    thresholds:[
+      {id:'WATCHING',label:'静観',min:0,max:24},
+      {id:'SECRET',label:'秘密援助',min:25,max:49},
+      {id:'SUSTAINED',label:'継続援助',min:50,max:74},
+      {id:'FULL',label:'本格介入',min:75,max:100}
+    ],
+    countries:{
+      NETHERLANDS:{label:'オランダ',zones:['NORTH','CENTRAL','SOUTH'],quarterly_supply:{WATCHING:{FOOD:0,MATERIALS:0},SECRET:{FOOD:600,MATERIALS:400},SUSTAINED:{FOOD:1800,MATERIALS:800},FULL:{FOOD:3000,MATERIALS:1200}}},
+      FRANCE:{label:'フランス',zones:['NORTH','CENTRAL','SOUTH'],quarterly_supply:{WATCHING:{FOOD:0,MATERIALS:0},SECRET:{FOOD:600,MATERIALS:600},SUSTAINED:{FOOD:1200,MATERIALS:600},FULL:{FOOD:1200,MATERIALS:600}},full_intervention:{foreign_naval_points:7,expeditionary_army:{manpower:5000,name:'フランス遠征軍',commander_name:'ロシャンボー伯',historical_rank:'中将',role:'方面軍司令官',morale:78,training:82,equipment:84,stats:{leadership:82,tactics:78,logistics:80,politics:70,charisma:76},arrival_city_civic_effect:{support_shift_toward_faction:25,public_cooperation_change:20}}}},
+      SPAIN:{label:'スペイン',zones:['SOUTH'],quarterly_supply:{WATCHING:{FOOD:0,MATERIALS:0},SECRET:{FOOD:600,MATERIALS:300},SUSTAINED:{FOOD:1500,MATERIALS:600},FULL:{FOOD:1800,MATERIALS:600}},full_intervention:{mobilizable_manpower_once:3000,foreign_naval_points_south:7}}
+    }
+  };
+
+  window.POLITICAL_PHASE_CONFIG.german_auxiliaries={
+    thresholds:[
+      {id:'WATCHING',label:'静観',min:0,max:24},
+      {id:'SECRET',label:'秘密交渉',min:25,max:49},
+      {id:'SUSTAINED',label:'継続派遣',min:50,max:74},
+      {id:'FULL',label:'本格派遣',min:75,max:100}
+    ],
+    secret_manpower_once:1500,
+    sustained_manpower_quarterly:500,sustained_manpower_max_deliveries:8,
+    crisis_acceleration:{trigger_patriot_stars:60,diplomacy_gain:25,full_stage_manpower_once:1500},
+    full_force:{manpower:5000,name:'ドイツ補助軍',commander_name:'ヴィルヘルム・フォン・クニプハウゼン',historical_rank:'中将',role:'方面軍司令官',morale:76,training:80,equipment:82,stats:{leadership:80,tactics:77,logistics:75,politics:58,charisma:64},arrival_city_civic_effect:{support_shift_toward_faction:25,public_cooperation_change:20}}
+  };
+
+  window.POLITICAL_PHASE_CONFIG.overseas_supply=Object.assign({
+    arrival_rates:{CONTROL:1.00,ADVANTAGE:.90,CONTESTED:.75,DISADVANTAGE:.55,NO_CONTROL:.35},
+    quarterly_base:{PATRIOT:{FOOD:0,MATERIALS:0},BRITISH:{FOOD:3600,MATERIALS:1200}},
+    additional_support:{FOOD:1500,MATERIALS:1000},
+    foreign_aid_status:'ACTIVE_FOUR_STAGE_MODEL'
+  },window.POLITICAL_PHASE_CONFIG.overseas_supply||{});
+})();
