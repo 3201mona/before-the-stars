@@ -1,0 +1,7 @@
+{
+  "public_version": "1.0.0-beta.1",
+  "label": "Ver.1.0 公開テスト版（β版）",
+  "release_date": "2026-10-17",
+  "entry": "index.html",
+  "game": "runtime/game.html"
+}

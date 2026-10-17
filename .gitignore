@@ -1,0 +1,11 @@
+# Local/editor files and unpublished development artifacts
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+__pycache__/
+node_modules/
+*.log
+*.cpuprofile
+*.zip
+validation/
