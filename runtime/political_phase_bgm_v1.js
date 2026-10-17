@@ -57,5 +57,5 @@
     if(politicalActive())play(audio?audio.paused:false);
     else stop(true);
   }
-  window.__politicalPhaseBGM={play,stop,sync,isPlaying:()=>Boolean(audio&&!audio.paused),source:SRC_WAV,fallback:SRC_OGG};
+  window.__politicalPhaseBGM={play,stop,sync,isPlaying:()=>Boolean(audio&&!audio.paused),source:SRC_WAV};
 })();
