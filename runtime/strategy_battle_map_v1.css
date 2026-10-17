@@ -1,5 +1,5 @@
 /* Military control uses shape; political support remains the light map colors. */
-#game-map .unit-display.selected{fill:var(--support-color)!important}
+#game-map .unit-display.selected{fill:#ffd000!important}
 /* Display regions are masked full-map rectangles. Outline the actual city path. */
 body.support-on #game-map path.unit-click.selected{stroke:#ffe183!important;stroke-width:2.5!important;stroke-dasharray:none!important;vector-effect:non-scaling-stroke}
 .strategy-control-layer,.strategy-route-layer{pointer-events:none}

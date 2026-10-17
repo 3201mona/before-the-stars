@@ -111,7 +111,21 @@
       commanderAssignments.set(army.commander_id, army.id);
       if (canonicalCityIds && !canonicalCityIds.includes(army.location_city_id)) errors.push(`ARMY_CITY_INVALID:${army.id}`);
       if (!Number.isInteger(army.manpower) || army.manpower <= 0) errors.push(`ARMY_MANPOWER_INVALID:${army.id}`);
+      if (army.battle_id) {
+        const battle = state.battles?.[army.battle_id];
+        if (!battle || !['awaiting_tactic','active','awaiting_continuation'].includes(battle.status))
+          errors.push(`ARMY_BATTLE_LOCK_ORPHAN:${army.id}:${army.battle_id}`);
+        else if (![...(battle.attacker_army_ids||[]),...(battle.defender_army_ids||[])].includes(army.id))
+          errors.push(`ARMY_BATTLE_ROSTER_MISMATCH:${army.id}:${army.battle_id}`);
+      }
       for (const key of ['morale','training','equipment']) if (!Number.isFinite(army[key]) || army[key] < 0 || army[key] > 100) errors.push(`ARMY_PERCENTAGE_INVALID:${army.id}:${key}`);
+    }
+    for (const battle of Object.values(state.battles || {})) {
+      if (!['awaiting_tactic','active','awaiting_continuation'].includes(battle.status)) continue;
+      for (const id of [...(battle.attacker_army_ids||[]),...(battle.defender_army_ids||[])]) {
+        const army=state.field_armies?.[id];
+        if (army && army.battle_id !== battle.id) errors.push(`BATTLE_PARTICIPANT_UNLOCKED:${battle.id}:${id}`);
+      }
     }
     const statKeys = ['leadership','tactics','logistics','politics','charisma'];
     for (const commander of Object.values(state.commanders || {})) {
@@ -709,8 +723,12 @@
       const battle = army.battle_id && state.battles?.[army.battle_id];
       const battleStillInField = battle && ['awaiting_tactic','active','awaiting_continuation'].includes(battle.status);
       const departedAttacker = Boolean(battleStillInField && battle.origin_city_id === cityId && battle.attacker_army_ids?.includes(army.id) && battle.departure_committed);
+      // Reinforcements remain registered at their origin while fighting elsewhere.
+      // They must not count as an on-site field army for military control.
+      const deployedReinforcement = Boolean(battleStillInField && battle.city_id !== cityId &&
+        (battle.attacker_reinforcement_ids?.includes(army.id) || battle.defender_reinforcement_ids?.includes(army.id)));
       const lostRemoteAnchor=Boolean(army.control_anchor_lost&&army.battle_id&&army.supply_city_id===cityId);
-      if (army.location_city_id === cityId && army.manpower > 0 && FACTIONS.includes(army.faction) && !departedAttacker && !lostRemoteAnchor) present.add(army.faction);
+      if (army.location_city_id === cityId && army.manpower > 0 && FACTIONS.includes(army.faction) && !departedAttacker && !deployedReinforcement && !lostRemoteAnchor) present.add(army.faction);
     }
     for (const battle of Object.values(state.battles || {})) {
       const attackerWon = ['major_victory','victory'].includes(battle.last_resolution?.band);

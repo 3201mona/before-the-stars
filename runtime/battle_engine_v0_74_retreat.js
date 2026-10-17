@@ -171,8 +171,19 @@
     }
     const garrison=state.garrisons?.[id],friendlyGarrisonPresent=Boolean(garrison?.faction===loserFaction&&Number(garrison?.manpower||0)>=100);if(garrison?.faction&&Number(garrison?.manpower||0)>=100)present.add(garrison.faction);
     const activeBattle=Object.values(state.battles||{}).some(entry=>entry.id!==battleId&&entry.city_id===id&&['active','awaiting_tactic','awaiting_continuation'].includes(entry.status));
+    // A reinforcement may return to its origin when this battle ends. Do not allow
+    // the other faction to withdraw to a city which will then receive that army.
+    // This is a reservation, not a change to military/political control.
+    const pendingEnemyReturn=Object.values(state.battles||{}).some(entry=>
+      entry.id===battleId&&['active','awaiting_tactic','awaiting_continuation'].includes(entry.status)&&
+      Object.entries(entry.reinforcement_origins||{}).some(([armyId,meta])=>{
+        const army=state.field_armies?.[armyId];
+        return meta?.origin_city_id===id&&army?.battle_id===entry.id&&
+          Number(army.manpower||0)>0&&army.faction!==loserFaction;
+      })
+    );
     const control=activeBattle||present.size>1?'CONFLICT':present.size===1?[...present][0]:'UNCONTROLLED';
-    return{control,friendlyArmyPresent,friendlyGarrisonPresent,eligible:control===loserFaction||control==='UNCONTROLLED'};
+    return{control,friendlyArmyPresent,friendlyGarrisonPresent,pending_enemy_return:pendingEnemyReturn,eligible:!pendingEnemyReturn&&(control===loserFaction||control==='UNCONTROLLED')};
   }
   function retreatSortRecord(state,cityState,id,loserFaction,excludedArmyIds=[],options={}){
     const city=cityState.cities[id],registrationOrder=new Map(Object.keys(cityState.cities||{}).map((cityId,index)=>[cityId,index])),status=retreatDestinationStatus(state,id,loserFaction,excludedArmyIds,options.battle_id||null);
@@ -359,7 +370,7 @@
       const mainLoserIds=attackerWon?defenderMain:attackerMain;
       const loserFaction=retreat.faction,mainPlan=mainLoserIds.length?selectRetreatPlan(next,cityState,battle,loserFaction,armyEngine,mainLoserIds,config):null;
       const retreatCityId=mainPlan?.destination_city_id||null;retreat.mode=mainPlan?.mode||null;retreat.route_class=mainPlan?.route_class||null;retreat.destination_control=mainPlan?.destination_control||null;retreat.arrival_rate=mainPlan?.arrival_rate??null;if(mainPlan?.mode==='SEA')retreat.sea={zone_id:mainPlan.zone_id,stage:mainPlan.stage,arrival_rate:mainPlan.arrival_rate,intercepted:false};
-      if(mainLoserIds.length){if(retreatCityId){const transit=applyRetreatPlan(next,mainLoserIds,mainPlan);retreat.destination_city_id=retreatCityId;retreat.transit_loss=transit.transit_loss;retreat.loss_details=transit.loss_details;}else{retreat.isolated=true;const trapped=removeNoRetreatArmiesWithCommanderRisk(next,mainLoserIds,config,armyEngine);next=trapped.state;destroyed.push(...trapped.removed);incidents.push(...trapped.incidents);}}
+      if(mainLoserIds.length){if(retreatCityId){const transit=applyRetreatPlan(next,mainLoserIds,mainPlan);retreat.destination_city_id=retreatCityId;retreat.transit_loss=transit.transit_loss;retreat.loss_details=transit.loss_details;for(const id of mainLoserIds)if(next.field_armies?.[id])next.field_armies[id].battle_id=null;}else{retreat.isolated=true;const trapped=removeNoRetreatArmiesWithCommanderRisk(next,mainLoserIds,config,armyEngine);next=trapped.state;destroyed.push(...trapped.removed);incidents.push(...trapped.incidents);}}
       if(attackerWon){
         if(next.garrisons[battle.city_id]){next.garrisons[battle.city_id].manpower=0;next.garrisons[battle.city_id].faction=null;}
         for(const id of attackerMain)if(next.field_armies[id])next.field_armies[id].location_city_id=battle.city_id;
@@ -387,7 +398,7 @@
     if(![battle.attacker_faction,battle.defender_faction].includes(withdrawingFaction))fail('BATTLE_WITHDRAWAL_FACTION_INVALID');
     let next=copy(state);const isAttacker=withdrawingFaction===battle.attacker_faction,role=isAttacker?'attacker':'defender',allIds=isAttacker?battle.attacker_army_ids:battle.defender_army_ids,ownReinf=new Set(reinforcementIds(battle,role)),mainIds=allIds.filter(id=>!ownReinf.has(id)&&next.field_armies?.[id]),config=phaseConfig?.battle_engine||phaseConfig||(typeof globalThis!=='undefined'?globalThis.PHASE2_CONFIG?.battle_engine:null)||{},activeGarrison=!isAttacker&&next.garrisons?.[battle.city_id]?.faction===withdrawingFaction&&Number(next.garrisons[battle.city_id].manpower||0)>0;
     let plan=null,transit={arrival_rate:1,transit_loss:0,loss_details:[]},destination=null;
-    if(mainIds.length){plan=selectRetreatPlan(next,cityState,battle,withdrawingFaction,armyEngine,mainIds,config);if(!plan)return{state:copy(state),battle:copy(battle),withdrawn:false,reason:'NO_WITHDRAWAL_DESTINATION'};destination=plan.destination_city_id;transit=applyRetreatPlan(next,mainIds,plan);}else if(!ownReinf.size||activeGarrison)return{state:copy(state),battle:copy(battle),withdrawn:false,reason:'NO_MAIN_FORCE_TO_WITHDRAW'};
+    if(mainIds.length){plan=selectRetreatPlan(next,cityState,battle,withdrawingFaction,armyEngine,mainIds,config);if(!plan)return{state:copy(state),battle:copy(battle),withdrawn:false,reason:'NO_WITHDRAWAL_DESTINATION'};destination=plan.destination_city_id;transit=applyRetreatPlan(next,mainIds,plan);for(const id of mainIds)if(next.field_armies?.[id])next.field_armies[id].battle_id=null;}else if(!ownReinf.size||activeGarrison)return{state:copy(state),battle:copy(battle),withdrawn:false,reason:'NO_MAIN_FORCE_TO_WITHDRAW'};
     const atkReinf=new Set(reinforcementIds(battle,'attacker')),defReinf=new Set(reinforcementIds(battle,'defender')),attackerMain=battle.attacker_army_ids.filter(id=>!atkReinf.has(id));
     if(!isAttacker){if(next.garrisons[battle.city_id]){next.garrisons[battle.city_id].manpower=0;next.garrisons[battle.city_id].faction=null;}for(const id of attackerMain)if(next.field_armies[id])next.field_armies[id].location_city_id=battle.city_id;}
     const destroyed=[],incidents=[];let rr=returnReinforcements(next,cityState,battle,'attacker',config,armyEngine,destroyed,incidents);next=rr.state;const reinforcementMoves=[...rr.moves];rr=returnReinforcements(next,cityState,battle,'defender',config,armyEngine,destroyed,incidents);next=rr.state;reinforcementMoves.push(...rr.moves);
