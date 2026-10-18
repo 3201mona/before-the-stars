@@ -1,6 +1,6 @@
 {
-  "public_version": "1.0.0-beta.2",
-  "label": "Ver.1.0 β2",
+  "public_version": "1.0.0-beta.3",
+  "label": "Ver.1.0 β3",
   "release_date": "2026-10-18",
   "entry": "index.html",
   "game": "runtime/game.html"
