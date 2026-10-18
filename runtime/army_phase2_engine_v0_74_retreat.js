@@ -718,32 +718,12 @@
 
   function militaryStatus(state, cityId) {
     if (!state.city_logistics?.[cityId]) fail('CITY_NOT_FOUND');
-    const present = new Set();
-    for (const army of Object.values(state.field_armies || {})) {
-      const battle = army.battle_id && state.battles?.[army.battle_id];
-      const battleStillInField = battle && ['awaiting_tactic','active','awaiting_continuation'].includes(battle.status);
-      const departedAttacker = Boolean(battleStillInField && battle.origin_city_id === cityId && battle.attacker_army_ids?.includes(army.id) && battle.departure_committed);
-      // Reinforcements remain registered at their origin while fighting elsewhere.
-      // They must not count as an on-site field army for military control.
-      const deployedReinforcement = Boolean(battleStillInField && battle.city_id !== cityId &&
-        (battle.attacker_reinforcement_ids?.includes(army.id) || battle.defender_reinforcement_ids?.includes(army.id)));
-      const lostRemoteAnchor=Boolean(army.control_anchor_lost&&army.battle_id&&army.supply_city_id===cityId);
-      if (army.location_city_id === cityId && army.manpower > 0 && FACTIONS.includes(army.faction) && !departedAttacker && !deployedReinforcement && !lostRemoteAnchor) present.add(army.faction);
-    }
-    for (const battle of Object.values(state.battles || {})) {
-      const attackerWon = ['major_victory','victory'].includes(battle.last_resolution?.band);
-      if (battle.origin_city_id === cityId && battle.status === 'resolved' && attackerWon && !battle.departure_committed && FACTIONS.includes(battle.attacker_faction)) present.add(battle.attacker_faction);
-    }
-    const garrison = state.garrisons?.[cityId];
-    if (garrison && garrison.manpower >= MINIMUM_EFFECTIVE_GARRISON && FACTIONS.includes(garrison.faction)) present.add(garrison.faction);
-    const activeBattle = Object.values(state.battles || {}).some(battle => battle.city_id === cityId && ['active','awaiting_tactic','awaiting_continuation'].includes(battle.status));
-    let control = 'UNCONTROLLED';
-    if (activeBattle || present.size > 1) control = 'CONFLICT';
-    else if (present.size === 1) control = [...present][0];
-    const security = state.city_security?.[cityId] || {unrest: 0, rebellion_active: false};
-    const unrest = Math.max(0, Math.min(100, Number(security.unrest) || 0));
-    const unrest_status = security.rebellion_active || unrest >= 100 ? 'REBELLION_ACTIVE' : unrest >= 70 ? 'UPRISING_IMMINENT' : unrest >= 40 ? 'UNREST' : 'CALM';
-    return {city_id: cityId, control, unrest, unrest_status, effective_garrison: Boolean(garrison && garrison.manpower >= MINIMUM_EFFECTIVE_GARRISON), present_factions: [...present].sort()};
+    const policy=(typeof module==='object'&&module.exports)?require('./city_control_policy_v1.js'):globalThis.CityControlPolicy;
+    const result=policy.militaryStatus(state,cityId,MINIMUM_EFFECTIVE_GARRISON);
+    const security=state.city_security?.[cityId]||{unrest:0,rebellion_active:false};
+    const unrest=Math.max(0,Math.min(100,Number(security.unrest)||0));
+    const unrest_status=security.rebellion_active||unrest>=100?'REBELLION_ACTIVE':unrest>=70?'UPRISING_IMMINENT':unrest>=40?'UNREST':'CALM';
+    return {...result,unrest,unrest_status};
   }
 
   function setCityUnrest(state, cityId, value, rebellionActive = false) {
