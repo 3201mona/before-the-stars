@@ -33,7 +33,7 @@
     const {command_type,origin_city_id,faction,controlled_sea_zones=[]}=request,origin=city(state,origin_city_id);
     if(!isFriendly(origin,faction))return[];
     const pool=SEA_COMMANDS.has(command_type)?seaCandidates(state,origin_city_id,controlled_sea_zones,command_type):landNeighbors(state,origin_city_id);
-    return pool.filter(id=>{const target=state.cities[id];if(MOVE_COMMANDS.has(command_type))return isFriendly(target,faction)||isUncontrolled(target);if(TRANSPORT_COMMANDS.has(command_type))return isFriendly(target,faction);if(ATTACK_COMMANDS.has(command_type))return target.politics.military_control===enemyFaction(faction)&&hasDefenders(target);return false;});
+    return pool.filter(id=>{const target=state.cities[id];if(MOVE_COMMANDS.has(command_type))return isFriendly(target,faction)||isUncontrolled(target);if(TRANSPORT_COMMANDS.has(command_type))return isFriendly(target,faction);if(ATTACK_COMMANDS.has(command_type))return target.politics.military_control===enemyFaction(faction) /* Occupied-but-ungarrisoned cities remain attackable. Actual defenders are checked by BattleEngine. */;return false;});
   }
   function validateCommand(state,command,context){
     const candidates=getCommandCandidates(state,{command_type:command.command_type,origin_city_id:command.origin_city_id,faction:context.faction,controlled_sea_zones:context.controlled_sea_zones});
