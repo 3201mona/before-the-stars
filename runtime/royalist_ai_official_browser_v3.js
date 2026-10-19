@@ -1282,26 +1282,32 @@ const enemyOf=f=>f==='PATRIOT'?'BRITISH':'PATRIOT';
 const copy=x=>JSON.parse(JSON.stringify(x));
 const control=(m,id)=>P.militaryControl(m,id,political);
 function landNeighbors(c,id){const out=[];for(const e of c.topology?.edges||[]){if(String(e.type||'').startsWith('water_')||e.counts_as_land_adjacency===false)continue;if(e.a===id)out.push(e.b);else if(e.b===id)out.push(e.a);}return [...new Set(out)];}
-function armiesAt(m,id,f){return Object.values(m.field_armies||{}).filter(a=>a.faction===f&&a.location_city_id===id&&Number(a.manpower)>0);}
+function armiesAt(m,id,f){return Object.values(m.field_armies||{}).filter(a=>{
+  if(a.faction!==f||a.location_city_id!==id||Number(a.manpower)<=0)return false;
+  // Reinforcements retain their origin city while fighting at another city.
+  // Do not count those men as a local garrison, reserve, or source of an attack.
+  const battle=a.battle_id&&m.battles?.[a.battle_id];
+  return !battle||['resolved','withdrawn'].includes(battle.status)||battle.city_id===id;
+ });}
 function troopsAt(m,id,f){return armiesAt(m,id,f).reduce((n,a)=>n+(Number(a.manpower)||0),0);}
 function chiefArmy(m,f){return Object.values(m.field_armies||{}).find(a=>a.faction===f&&Number(a.manpower)>0&&m.commanders?.[a.commander_id]?.role==='総司令官')||null;}
 function periodSerial(m){return Number(m?.calendar?.year||1775)*12+Number(m?.calendar?.month||1);}
 function directRoute(c,origin,target,faction){if(landNeighbors(c,origin).includes(target))return'LAND_ATTACK';try{if(C.getCommandCandidates(c,{command_type:'LANDING_ATTACK',origin_city_id:origin,faction}).includes(target))return'LANDING_ATTACK';}catch{}return null;}
-function battleRatioForOrigin(m,c,attackerFaction,origin,target,route=null){const ids=armiesAt(m,origin,attackerFaction).map(a=>a.id);if(!ids.length)return null;route=route||directRoute(c,origin,target,attackerFaction);if(!route)return null;try{const state=CombatProjection.copy(m);for(const id of ids)if(state.field_armies?.[id])state.field_armies[id].acted_this_month=false;const leader=ids.find(id=>state.commanders?.[state.field_armies?.[id]?.commander_id]?.role==='総司令官')||ids[0];const pre=B.prepareBattle(state,{origin_city_id:origin,city_id:target,attacker_army_ids:ids,leader_army_id:leader,route_type:route},c,phase);const atk=B.basePower(pre.attacker,phase.battle_engine,false),def=B.basePower(pre.defender,phase.battle_engine,true);return{ratio:def>0?atk/def:99,attackerPower:atk,defenderPower:def,origin,target,route,manpower:pre.attacker.manpower};}catch{return null;}}
+function battleRatioForOrigin(m,c,attackerFaction,origin,target,route=null){const ids=armiesAt(m,origin,attackerFaction).map(a=>a.id);if(!ids.length)return null;route=route||directRoute(c,origin,target,attackerFaction);if(!route)return null;try{const state=CombatProjection.copy(m);for(const id of ids)if(state.field_armies?.[id])state.field_armies[id].acted_this_month=false;const leader=ids.find(id=>state.commanders?.[state.field_armies?.[id]?.commander_id]?.role==='総司令官')||ids[0];const pre=B.prepareBattle(state,{origin_city_id:origin,city_id:target,attacker_army_ids:ids,leader_army_id:leader,route_type:route},c,phase);const atk=B.basePower(pre.attacker,phase.battle_engine,false),def=B.basePower(pre.defender,phase.battle_engine,true);const baseRatio=def>0?atk/def:99,assaultPower=Number(phase.battle_engine.tactics?.all_out_attack?.power||1.12),holdingPower=Number(phase.battle_engine.tactics?.hold_line?.power||.95);return{ratio:baseRatio,assaultRatio:baseRatio*assaultPower/Math.max(.1,holdingPower),attackerPower:atk,defenderPower:def,origin,target,route,manpower:pre.attacker.manpower};}catch{return null;}}
 function directThreat(m,c,f,target){const enemy=enemyOf(f),rows=[];for(const origin of Object.keys(c.cities||{})){if(troopsAt(m,origin,enemy)<=0)continue;const route=directRoute(c,origin,target,enemy);if(!route)continue;const row=battleRatioForOrigin(m,c,enemy,origin,target,route);if(row)rows.push(row);}rows.sort((a,b)=>b.ratio-a.ratio);return rows[0]||{ratio:0,manpower:0,origin:null,target,route:null};}
 function nextTurnThreat(m,c,f,target){const enemy=enemyOf(f);let best=directThreat(m,c,f,target);for(const origin of Object.keys(c.cities||{})){const moving=armiesAt(m,origin,enemy);if(!moving.length)continue;const moves=landNeighbors(c,origin);for(const staging of moves){if(staging===target||control(m,staging)===f)continue;if(!directRoute(c,staging,target,enemy))continue;try{const virtual=CombatProjection.copy(m);for(const a of moving)if(virtual.field_armies?.[a.id]){virtual.field_armies[a.id].location_city_id=staging;virtual.field_armies[a.id].acted_this_month=false;}const row=battleRatioForOrigin(virtual,c,enemy,staging,target);if(row&&row.ratio>best.ratio)best={...row,virtualMoveFrom:origin,virtualMoveTo:staging};}catch{}}
   }
   return best;
 }
 function supplyMonths(m,c,id){return Readiness.balanceFor(m,c,id)?.months??0;}
-function safeRetreatTargets(m,c,f,id){const enemy=enemyOf(f);let legal=[];try{legal=C.getCommandCandidates(c,{command_type:'MOVE',origin_city_id:id,faction:f});}catch{legal=landNeighbors(c,id).filter(x=>control(m,x)!==enemy);}const rows=[];for(const target of legal){if(control(m,target)===enemy||troopsAt(m,target,enemy)>0)continue;const now=directThreat(m,c,f,target);if(now.ratio>=1.30)continue;const enemyAdj=landNeighbors(c,target).reduce((n,x)=>n+troopsAt(m,x,enemy),0),friendly=troopsAt(m,target,f)+landNeighbors(c,target).reduce((n,x)=>n+troopsAt(m,x,f),0),nextApprox=friendly>0?enemyAdj/friendly:(enemyAdj>0?9:0);if(nextApprox>=1.8)continue;rows.push({target,now:now.ratio,next:nextApprox,food:Number(c.cities?.[target]?.stockpile?.FOOD)||0,friendly});}return rows.sort((a,b)=>(b.friendly-a.friendly)||(b.food-a.food)||(a.next-b.next));}
+function safeRetreatTargets(m,c,f,id){const enemy=enemyOf(f);let legal=[];try{legal=C.getCommandCandidates(c,{command_type:'MOVE',origin_city_id:id,faction:f});}catch{legal=landNeighbors(c,id).filter(x=>control(m,x)!==enemy);}const rows=[];for(const target of legal){if(control(m,target)===enemy||troopsAt(m,target,enemy)>0)continue;const now=directThreat(m,c,f,target);if(now.ratio>=1.30)continue;const enemyAdj=landNeighbors(c,target).reduce((n,x)=>n+troopsAt(m,x,enemy),0),friendly=troopsAt(m,target,f)+landNeighbors(c,target).reduce((n,x)=>n+troopsAt(m,x,f),0),nextApprox=friendly>0?enemyAdj/friendly:(enemyAdj>0?9:0);if(nextApprox>=1.8)continue;const exits=landNeighbors(c,target).filter(dest=>dest!==id&&control(m,dest)!==enemy&&troopsAt(m,dest,enemy)===0).length;rows.push({target,now:now.ratio,next:nextApprox,food:Number(c.cities?.[target]?.stockpile?.FOOD)||0,friendly,exits,ownControl:control(m,target)===f});}return rows.sort((a,b)=>Number(b.ownControl)-Number(a.ownControl)||(b.exits-a.exits)||(b.friendly-a.friendly)||(b.food-a.food)||(a.next-b.next));}
 function buildSnapshot(m,c,f){const chief=chiefArmy(m,f);if(!chief)return{chiefAlive:false,hqCityId:null,chiefMorale:0,enemyToFriendlyPowerRatio:99,nextTurnEnemyToFriendlyPowerRatio:99,crisisTriggered:false,severeThreat:true};const id=chief.location_city_id,now=directThreat(m,c,f,id),next=nextTurnThreat(m,c,f,id),safe=safeRetreatTargets(m,c,f,id),friendlyHere=troopsAt(m,id,f),friendlyAdj=landNeighbors(c,id).reduce((n,x)=>n+troopsAt(m,x,f),0),otherHere=Math.max(0,friendlyHere-(Number(chief.manpower)||0)),morale=Number(chief.morale)||0,ongoing=Object.values(m.battles||{}).some(b=>!['resolved','withdrawn'].includes(b.status)&&((b.attacker_army_ids||[]).includes(chief.id)||(b.defender_army_ids||[]).includes(chief.id))),threatManpower=Math.max(now.manpower||0,next.manpower||0),ratio=Math.max(0,now.ratio||0),nextRatio=Math.max(ratio,next.ratio||0),supply=supplyMonths(m,c,id),friendlyConcentrationReady=otherHere>=500||friendlyAdj>=1200,frontAnchored=ratio<=1.20&&(friendlyConcentrationReady||safe.length>0),enemyCanAttackNextTurn=Boolean(next.origin||next.virtualMoveTo);
   const pressurePresent=threatManpower>=500||enemyCanAttackNextTurn;
   return{chiefAlive:true,chiefMorale:morale,hqCityId:id,enemyToFriendlyPowerRatio:ratio,nextTurnEnemyToFriendlyPowerRatio:nextRatio,enemyCanAttackNextTurn,safeRetreatRoutes:safe.length,frontAnchored,friendlyConcentrationReady,supplyMonths:supply,supplySustainable:supply>=1,ongoingBattle:Boolean(ongoing),forcedWithdrawalPending:false,crisisTriggered:Math.max(ratio,nextRatio)>=1.12||(morale<=42&&pressurePresent),severeThreat:ratio>=1.30||(morale<=30&&pressurePresent),nextTurnSevereThreat:enemyCanAttackNextTurn&&nextRatio>=1.30,currentThreat:now,nextTurnThreat:next,safeTargets:safe};}
 function lifecycle(m,c,f){let state=Lifecycle.loadPersistedState(m,f);const snapshot=buildSnapshot(m,c,f),turn=periodSerial(m);let stepped=Lifecycle.stepLifecycle(state,snapshot,turn,LIFECYCLE_CONFIG);state=stepped.state;let replanned=false;if(state.mode==='REPLAN_NORMAL'){state=Lifecycle.finishReplan(state);replanned=true;}const recorded=Lifecycle.recordHQCity(state,snapshot.hqCityId);state=recorded.state;Lifecycle.savePersistedState(m,f,state);return{state,snapshot,event:stepped.event,replanned,completion:stepped.assessment||null,loopDetected:recorded.loopDetected};}
 function assess(m,c,f){const life=lifecycle(m,c,f),s=life.snapshot;return{active:life.state.mode==='BREAKTHROUGH_CRISIS',severe:Boolean(s.severeThreat||s.nextTurnSevereThreat),chief:chiefArmy(m,f),city:s.hqCityId,own:troopsAt(m,s.hqCityId,f),enemy:s.currentThreat?.manpower||0,adjEnemy:landNeighbors(c,s.hqCityId||'').reduce((n,x)=>n+troopsAt(m,x,enemyOf(f)),0),projectedEnemy:Math.max(s.currentThreat?.manpower||0,s.nextTurnThreat?.manpower||0),ratio:s.enemyToFriendlyPowerRatio,effectiveRatio:s.enemyToFriendlyPowerRatio,nextTurnEffectiveRatio:s.nextTurnEnemyToFriendlyPowerRatio,morale:s.chiefMorale,reason:life.state.mode==='BREAKTHROUGH_CRISIS'?'BREAKTHROUGH_CRISIS':life.replanned?'CRISIS_COMPLETE_REPLANNED':'STABLE',lifecycle:life.state,snapshot:s,replanned:life.replanned};}
 function safeMoveCandidate(m,c,f,a){
-  if(!a.active||!a.chief||a.chief.acted_this_month)return null;
+  if(!a.active||!a.chief||a.chief.acted_this_month||a.chief.battle_id)return null;
   const state=a.lifecycle||Lifecycle.loadPersistedState(m,f),safe=a.snapshot?.safeTargets||safeRetreatTargets(m,c,f,a.city);
   if(!safe.length)return null;
   const group=armiesAt(m,a.city,f).filter(x=>!x.acted_this_month).map(x=>x.id);
@@ -1310,7 +1316,7 @@ function safeMoveCandidate(m,c,f,a){
   const rows=safe.map(r=>{
     const target=r.target,friendAt=troopsAt(m,target,f),friendAdj=landNeighbors(c,target).reduce((n,x)=>n+troopsAt(m,x,f),0);
     const isReturn=Lifecycle.isTwoCityShuttleCandidate(state,target);
-    const score=(a.severe?258:178)+(friendAt+friendAdj*.35)/220+r.food/180-r.next*28;
+    const score=(a.severe?258:178)+(friendAt+friendAdj*.35)/220+r.food/180-r.next*28+(r.ownControl?18:-14)+Math.min(3,r.exits)*12-(r.exits===0?42:0);
     const trust=Trust.project(m,c,f,{type:'MOVE',ids:group,origin:a.city,target,route:'MOVE'});
     return{score:score-trust.penalty,target,isReturn,recent:recent.has(target),allowed:trust.allowed};
   }).filter(r=>r.allowed);
@@ -1362,7 +1368,7 @@ function garrisonCandidate(m,c,f,a){
   const desired=Math.ceil(Math.max(.25,Math.min(1,pressure-1))*20)*100;
   const troops=Math.min(affordable,desired);
   try{E.formGarrison(copy(m),a.city,f,troops,phase);}catch{return null;}
-  const rows=[];for(let amount=100;amount<=troops;amount+=100)rows.push({operation:'BREAKTHROUGH_EMERGENCY_GARRISON',score:205,action:{type:'GARRISON',city:a.city,troops:amount,strategic_reason:'BREAKTHROUGH_CRISIS',operational_reason:'DEFEND_COMMANDER_CITY'}});return rows;
+  return[{operation:'BREAKTHROUGH_EMERGENCY_GARRISON',score:205,action:{type:'GARRISON',city:a.city,troops,strategic_reason:'BREAKTHROUGH_CRISIS',operational_reason:'DEFEND_COMMANDER_CITY'}}];
 }
 function navalEscapeCandidate(m,c,f,a){
   if(!a.active||!a.city)return null;
@@ -1381,6 +1387,115 @@ function recruitCandidate(m,c,f,a){
  const normal=require('./normal_operations_v1.js');
  return normal.fieldCandidates(m,c,f).filter(r=>m.field_armies[r.action.army_id]?.location_city_id===a.city).map(r=>({...r,operation:'BREAKTHROUGH_EMERGENCY_IMPROVE',action:{...r.action,strategic_reason:'BREAKTHROUGH_CRISIS'}}));
 }
+
+// BEGIN BTS EXPERIMENT: 1-3 month operational front relocation (not a rules change).
+// A plan belongs to the existing crisis lifecycle, but NOT to its mode: a completed
+// immediate crisis does not forcibly hold the AI in crisis merely to pursue the plan.
+function frontOperationCandidates(m,c,f,a){
+ const state=a.lifecycle||Lifecycle.loadPersistedState(m,f),chief=a.chief,turn=periodSerial(m);
+ const prior=state.frontRelocationPlan;
+ if(!chief||chief.manpower<1||chief.battle_id)return [];
+ const enemy=enemyOf(f),localArmies=Object.values(m.field_armies||{}).filter(x=>x.faction===f&&x.manpower>0&&!x.battle_id),hq=chief.location_city_id;
+ const nearby=landNeighbors(c,hq).reduce((s,id)=>s+troopsAt(m,id,f),0);
+ const pressure=Math.max(a.ratio||0,a.nextTurnEffectiveRatio||0);
+ const viablePrior=prior&&prior.faction===f&&prior.chief_id===chief.id&&turn>=prior.start_turn&&turn<=prior.end_turn&&c.cities?.[prior.target]&&control(m,prior.target)===f&&troopsAt(m,prior.target,enemy)===0;
+ if(!a.active&&!viablePrior)return [];
+ if(!viablePrior&&(pressure<1.12||nearby>=Math.max(2500,chief.manpower*.7)))return [];
+ const occupied=new Set(Object.values(m.battles||{}).filter(b=>!['resolved','withdrawn'].includes(b.status)).map(b=>b.city_id));
+ const legalCache=new Map(),routeCache=new Map(),period=`${m.calendar.year}-${String(m.calendar.month).padStart(2,'0')}`;
+ function legal(from){if(legalCache.has(from))return legalCache.get(from);
+  const rows=[];for(const route of ['MOVE','SEA_MOVE']){
+   let cities=[];try{cities=C.getCommandCandidates(c,{command_type:route,origin_city_id:from,faction:f})||[];}catch{}
+   for(const dest of cities){if(!c.cities?.[dest]||control(m,dest)===enemy||troopsAt(m,dest,enemy)>0||occupied.has(dest))continue;
+    let rate=1;if(route==='SEA_MOVE'){
+      try{const z1=c.cities[from].geography?.sea_zone_id,z2=c.cities[dest].geography?.sea_zone_id;
+       if(!z1||!z2||!c.cities[from].geography?.is_port||!c.cities[dest].geography?.is_port)continue;
+       rate=Number(N.seaRouteProfile(c,z1,z2,f,'LANDING',period).arrival_rate);
+      }catch{continue;}
+      // Do not trade a repeat land-withdrawal loss for an even more dangerous sea transfer.
+      if(!Number.isFinite(rate)||rate<.96)continue;
+    }
+    rows.push({dest,route,rate});
+   }
+  }
+  legalCache.set(from,rows);return rows;
+ }
+ function path(from,to,limit=3){const key=from+'>'+to+'@'+limit;if(routeCache.has(key))return routeCache.get(key);
+  if(from===to)return [];
+  const q=[{city:from,steps:[],seen:new Set([from])}];let best=null;
+  while(q.length){const p=q.shift();if(p.steps.length>=limit)continue;
+   for(const e of legal(p.city)){if(p.seen.has(e.dest))continue;const steps=[...p.steps,{from:p.city,...e}];
+    if(e.dest===to){best=steps;break;}
+    q.push({city:e.dest,steps,seen:new Set([...p.seen,e.dest])});
+   }if(best)break;
+  }
+  routeCache.set(key,best);return best;
+ }
+ function attackPressure(id){let enemyNear=0;
+  for(const army of Object.values(m.field_armies||{}))if(army.faction===enemy&&army.manpower>0&&army.location_city_id!==id&&!army.battle_id){
+    if(landNeighbors(c,army.location_city_id).includes(id))enemyNear+=army.manpower;
+    else if(directRoute(c,army.location_city_id,id,enemy)==='LANDING_ATTACK')enemyNear+=army.manpower*.8;
+  }
+  return enemyNear;
+ }
+ function supportAt(target){return localArmies.filter(x=>x.id!==chief.id&&(target===hq||x.location_city_id!==hq)).reduce((v,x)=>{
+    if(x.location_city_id===target)return v+x.manpower;
+    return landNeighbors(c,target).includes(x.location_city_id)?v+x.manpower*.65:v;
+  },0);}
+ function scoreTarget(target,hqPath){const support=supportAt(target),enemyNear=attackPressure(target),own=troopsAt(m,target,f),food=supplyMonths(m,c,target);
+   if(support<1200||food<.9||enemyNear>Math.max(1200,own+troopsAt(m,hq,f)*.65+support*.55))return null;
+   const seaLoss=hqPath.reduce((x,p)=>x+(1-p.rate),0);
+   const score=Math.min(100,support/70)+Math.min(24,food*7)+Math.min(35,Math.max(0,3-distance(c,hq,target))*13)
+      +Math.min(20,own/180)-(hqPath.length-1)*17-seaLoss*160-enemyNear/175;
+   return {score,support,enemyNear,food,seaLoss};
+ }
+ const targets=[];
+ if(viablePrior){const p=path(hq,prior.target,3);if(p){const s=scoreTarget(prior.target,p);if(s)targets.push({target:prior.target,steps:p,...s,persistent:true});}}
+ if(!targets.length&&a.active){for(const target of Object.keys(c.cities||{})){
+   if(target===hq||control(m,target)!==f||occupied.has(target))continue;
+   const p=path(hq,target,3);if(!p||!p.length)continue;
+   const s=scoreTarget(target,p);if(!s)continue;
+   const history=(state.hqCityHistory||[]).slice(-3);
+   if(history.includes(target))continue;
+   targets.push({target,steps:p,...s,persistent:false});
+ }}
+ if(!targets.length)return [];
+ targets.sort((x,y)=>Number(y.persistent)-Number(x.persistent)||y.score-x.score);
+ const goal=targets[0],validPlan=viablePrior&&goal.persistent;
+ const plan={schema:1,faction:f,chief_id:chief.id,target:goal.target,start_turn:validPlan?prior.start_turn:turn,end_turn:validPlan?prior.end_turn:turn+2};
+ const rows=[];
+ // Stage one: shift the headquarters toward the middle/forward rear base.
+ if(!chief.acted_this_month&&goal.steps[0]&&chief.location_city_id===hq){
+  const step=goal.steps[0],group=armiesAt(m,hq,f).filter(x=>!x.acted_this_month&&!x.battle_id).map(x=>x.id);
+  if(group.includes(chief.id)){
+   const projectedDanger=attackPressure(step.dest),local=troopsAt(m,step.dest,f),moving=group.reduce((v,id)=>v+(m.field_armies[id]?.manpower||0),0);
+   if(projectedDanger<=Math.max(1200,(local+moving)*1.15))rows.push({
+    operation:'BREAKTHROUGH_OPERATION_FRONT_RELOCATE',score:(validPlan?286:267)+Math.min(22,goal.support/240)+(a.severe?4:0),
+    action:{type:'MOVE',ids:group,origin:hq,target:step.dest,route:step.route,strategic_reason:'BREAKTHROUGH_CRISIS',operational_reason:'FRONT_RELOCATION_HQ',front_operation_plan:plan},
+    operational_horizon_months:goal.steps.length,operational_objective:goal.target,operational_gain:{support:goal.support,food_months:goal.food,sea_loss:goal.seaLoss}
+   });
+  }
+ }
+ // Stage two: bring independent divisions toward the SAME base. Do not move a field army
+ // away from an already threatened city just to manufacture apparent HQ safety.
+ for(const origin of new Set(localArmies.map(x=>x.location_city_id))){if(origin===hq||origin===goal.target)continue;
+  const units=armiesAt(m,origin,f).filter(x=>x.id!==chief.id&&!x.acted_this_month&&!x.battle_id);
+  if(!units.length)continue;
+  const old=path(origin,goal.target,3);if(!old||!old.length)continue;
+  const step=old[0],originPressure=attackPressure(origin),atOrigin=troopsAt(m,origin,f);
+  if(originPressure>=Math.max(1500,atOrigin*.9))continue;
+  const moving=units.reduce((v,x)=>v+x.manpower,0),destPressure=attackPressure(step.dest);
+  if(destPressure>Math.max(1200,(troopsAt(m,step.dest,f)+moving)*1.1))continue;
+  rows.push({operation:'BREAKTHROUGH_OPERATION_RENDEZVOUS',score:(validPlan?267:231)+Math.min(20,moving/300)-old.length*6-(a.severe?35:0),
+   action:{type:'MOVE',ids:units.map(x=>x.id),origin,target:step.dest,route:step.route,strategic_reason:'BREAKTHROUGH_CRISIS',operational_reason:'FRONT_RELOCATION_SUPPORT',front_operation_plan:plan},
+   operational_horizon_months:old.length,operational_objective:goal.target});
+ }
+ // No rescueValue: first-month operational gain need not improve instantaneous power ratio.
+ // Validity, trust, sea attrition and the ordinary movement/supply guards still apply downstream.
+ return rows;
+}
+// END BTS EXPERIMENT
+
 function rescueValue(m,c,f,row,a){
  const action=row.action,normal=require('./normal_operations_v1.js');if(!['MOVE','FORM','GARRISON','IMPROVE','RECRUIT','TRAINING'].includes(action.type))return row;
  try{
@@ -1400,11 +1515,33 @@ function rescueValue(m,c,f,row,a){
  }catch{return null;}
 }
 function actionDescriptor(action,chief){if(!action)return{type:'UNKNOWN'};const movesHQ=action.type==='MOVE'&&Array.isArray(action.ids)&&chief&&action.ids.includes(chief.id);if(movesHQ)return{type:'MOVE_HQ',targetCityId:action.target,safe:true};if(action.type==='RECRUIT'||action.type==='IMPROVE')return{type:action.kind||action.type,targetCityId:action.city||chief?.location_city_id||null};return{type:action.type,targetCityId:action.target||action.city||null};}
-function crisisCandidates(m,c,f){const a=assess(m,c,f);if(!a.active)return{assessment:a,candidates:[]};a.enemyWindow=Readiness.enemyWindow(m,f,a.city);if(a.enemyWindow.kind==='AFTER_MONTH_CLOSE'){const closed=Readiness.monthClose(m,c);a.windowRatio=Math.max(directThreat(closed.m,closed.c,f,a.city).ratio,nextTurnThreat(closed.m,closed.c,f,a.city).ratio);}else a.windowRatio=a.ratio;let rows=[];for(const fn of [safeMoveCandidate,reinforcementCandidate,formationCandidate,recruitCandidate,garrisonCandidate,navalEscapeCandidate]){const x=fn(m,c,f,a);rows.push(...(Array.isArray(x)?x:x?[x]:[]));}rows=rows.map(r=>rescueValue(m,c,f,r,a)).filter(Boolean);
+function screeningCounterattackCandidate(m,c,f,a){
+  // Stage IV: strike an exposed pursuer with a separate field detachment.
+  // Never throw the supreme commander into an opportunistic battle.
+  if(!a.active||!a.chief||Math.max(a.ratio||0,a.nextTurnEffectiveRatio||0)<1.15)return null;
+  const target=a.snapshot?.currentThreat?.origin||a.snapshot?.nextTurnThreat?.origin;
+  if(!target||target===a.city||troopsAt(m,target,enemyOf(f))<=0)return null;
+  const options=[];
+  for(const origin of landNeighbors(c,target)){
+    if(origin===a.city||control(m,origin)===enemyOf(f))continue;
+    for(const army of armiesAt(m,origin,f)){
+      if(army.acted_this_month||army.battle_id||Number(army.morale||0)<45||Number(army.manpower||0)<100)continue;
+      try{
+        const prepared=B.prepareBattle(m,{origin_city_id:origin,city_id:target,attacker_army_ids:[army.id],leader_army_id:army.id,route_type:'LAND_ATTACK'},c,phase);
+        const ratio=B.basePower(prepared.attacker,phase.battle_engine,false)/Math.max(1,B.basePower(prepared.defender,phase.battle_engine,true));
+        if(ratio<1.55)continue;
+        options.push({operation:'BREAKTHROUGH_SCREEN_PURSUER',score:222+Math.min(24,(ratio-1.55)*25),action:{type:'ATTACK',origin,target,ids:[army.id],leader:army.id,route:'LAND_ATTACK',strategic_reason:'BREAKTHROUGH_CRISIS',operational_reason:'INTERCEPT_EXPOSED_PURSUER'}});
+      }catch{}
+    }
+  }
+  options.sort((x,y)=>y.score-x.score);
+  return options[0]||null;
+}
+function crisisCandidates(m,c,f){const a=assess(m,c,f);const operationRows=frontOperationCandidates(m,c,f,a);if(!a.active)return{assessment:a,candidates:operationRows,operation_active:operationRows.length>0};a.enemyWindow=Readiness.enemyWindow(m,f,a.city);if(a.enemyWindow.kind==='AFTER_MONTH_CLOSE'){const closed=Readiness.monthClose(m,c);a.windowRatio=Math.max(directThreat(closed.m,closed.c,f,a.city).ratio,nextTurnThreat(closed.m,closed.c,f,a.city).ratio);}else a.windowRatio=a.ratio;let rows=[];for(const fn of [safeMoveCandidate,reinforcementCandidate,formationCandidate,recruitCandidate,garrisonCandidate,navalEscapeCandidate,screeningCounterattackCandidate]){const x=fn(m,c,f,a);rows.push(...(Array.isArray(x)?x:x?[x]:[]));}rows=[...rows.map(r=>rescueValue(m,c,f,r,a)).filter(Boolean),...operationRows];
  // A rescue that guarantees political defeat cannot preserve the campaign.
  rows=rows.filter(r=>!r.rescue_value?.departure?.trust_policy||r.rescue_value.departure.trust_policy.allowed);
  rows.sort((x,y)=>y.score-x.score);if(rows.length>1){const state=a.lifecycle;const mapped=rows.map(r=>({...r,_desc:actionDescriptor(r.action,a.chief)}));const first=mapped[0],sup=Lifecycle.shouldSuppressCrisisAction(state,first._desc,a.snapshot,mapped.slice(1).map(x=>x._desc),LIFECYCLE_CONFIG);if(sup.suppress){mapped.shift();mapped.push({...first,score:first.score-120,suppressed_reason:sup.reason});mapped.sort((x,y)=>y.score-x.score);}rows=mapped.map(({_desc,...r})=>r);}return{assessment:a,candidates:rows};}
-function noteChosenAction(m,f,action,c=null){const state=Lifecycle.loadPersistedState(m,f);const chief=chiefArmy(m,f),desc=actionDescriptor(action,chief);let next=Lifecycle.noteCrisisAction(state,desc);if(action?.type==='MOVE'&&chief&&Array.isArray(action.ids)&&action.ids.includes(chief.id))next=Lifecycle.recordHQCity(next,action.target).state;Lifecycle.savePersistedState(m,f,next);return next;}
+function noteChosenAction(m,f,action,c=null){const state=Lifecycle.loadPersistedState(m,f);const chief=chiefArmy(m,f),desc=actionDescriptor(action,chief);let next=Lifecycle.noteCrisisAction(state,desc);if(action?.type==='MOVE'&&chief&&Array.isArray(action.ids)&&action.ids.includes(chief.id))next=Lifecycle.recordHQCity(next,action.target).state;if(action?.front_operation_plan)next.frontRelocationPlan=action.front_operation_plan;Lifecycle.savePersistedState(m,f,next);return next;}
 function noteNormalAction(m,f){let state=Lifecycle.loadPersistedState(m,f);state.metrics.normalActions=(state.metrics.normalActions||0)+1;if(state.crisisExitTurn!=null&&!state.normalActionSeenAfterExit){state.normalActionSeenAfterExit=true;state.metrics.normalActionsAfterExit=(state.metrics.normalActionsAfterExit||0)+1;}Lifecycle.savePersistedState(m,f,state);return state;}
 function noteSecondaryAction(m,f){const state=Lifecycle.loadPersistedState(m,f);state.lastTransition='CRISIS_SECONDARY_COMMAND';state.metrics.crisisSecondaryActions=(state.metrics.crisisSecondaryActions||0)+1;Lifecycle.savePersistedState(m,f,state);return state;}
 function noteNoLegalCrisisAction(m,f){const state=Lifecycle.loadPersistedState(m,f);state.lastTransition='CRISIS_NO_LEGAL_COMMAND';state.metrics.crisisNoLegalCommands=(state.metrics.crisisNoLegalCommands||0)+1;Lifecycle.savePersistedState(m,f,state);return state;}
@@ -1423,9 +1560,7 @@ function preferredPrebattleRetreat(prepared,c,f){
     if(g?.faction===f){g.manpower=0;g.faction=null;}
     for(const id of battle.attacker_army_ids)if(virtual.field_armies?.[id])virtual.field_armies[id].location_city_id=battle.city_id;
     virtual.battles[battle.id].status='withdrawn';
-    return{immediate:directThreat(virtual,c,f,route.destination_city_id).ratio,
-      next:nextTurnThreat(virtual,c,f,route.destination_city_id).ratio,
-      supply:supplyMonths(virtual,c,route.destination_city_id)};
+    const exitCount=landNeighbors(c,route.destination_city_id).filter(dest=>dest!==battle.city_id&&control(virtual,dest)!==enemyOf(f)&&troopsAt(virtual,dest,enemyOf(f))===0).length;return{immediate:directThreat(virtual,c,f,route.destination_city_id).ratio,next:nextTurnThreat(virtual,c,f,route.destination_city_id).ratio,supply:supplyMonths(virtual,c,route.destination_city_id),exitCount};
   }
   // The existing ordering is generally useful. Intervene only if it sends the
   // commander straight back under a decisive attack, while a nearby route with
@@ -1433,7 +1568,7 @@ function preferredPrebattleRetreat(prepared,c,f){
   // Prefer an actually safe next turn, then stay close to the front. Never
   // increase the projected next-turn risk just to avoid one immediate attack.
   const normalThreat=risk(normal);
-  if(normalThreat.immediate<1.30)return null;
+  if(normalThreat.immediate<1.30&&normalThreat.exitCount>0&&normal.arrival_rate>=.995)return null;
   const viable=[],seen=new Set([normal.destination_city_id]);
   for(const route of routes){
     const city=route.destination_city_id;
@@ -1443,7 +1578,7 @@ function preferredPrebattleRetreat(prepared,c,f){
     const distanceFromBattle=distance(c,battle.city_id,city);
     if(distanceFromBattle>3)continue;
     const threat=risk(route);
-    if(threat.immediate>=1.30||threat.next>normalThreat.next+.05||threat.supply<1)continue;
+    if(threat.immediate>=1.30||threat.next>Math.max(1.30,normalThreat.next+.05)||threat.supply<1||threat.exitCount===0)continue;
     viable.push({city,distanceFromBattle,stars:route.stars,food:route.food,next:threat.next});
   }
   viable.sort((a,b)=>Number(a.next>=1.30)-Number(b.next>=1.30)||a.distanceFromBattle-b.distanceFromBattle||b.stars-a.stars||a.next-b.next||b.food-a.food);
@@ -1455,10 +1590,18 @@ function defenseDecision(prepared,f,c){
  if(!chiefIds.length)return{withdraw:false,tactic:'hold_line',reason:'CHIEF_NOT_PRESENT'};
  const morale=Math.min(...chiefIds.map(id=>Number(prepared.state.field_armies[id]?.morale)||0));
  const atk=B.basePower(prepared.attacker,phase.battle_engine,false),def=B.basePower(prepared.defender,phase.battle_engine,true),ratio=def>0?atk/def:99;
- let withdraw=ratio>=1.30||(morale<=28&&ratio>=1.15);
- const preferredRetreatCityId=withdraw?preferredPrebattleRetreat(prepared,c,f):null;
+ const tactics=phase.battle_engine.tactics||{},allOut=Number(tactics.all_out_attack?.power||1.12),hold=Number(tactics.hold_line?.power||.95),expectedAssault=ratio*allOut/Math.max(.1,hold);
+ const retreatNeeded=ratio>=1.30||expectedAssault>=1.35||(morale<=28&&expectedAssault>=1.15);
+ const legalRetreat=retreatNeeded&&c?B.selectRetreatPlan(prepared.state,c,b,f,E,b.defender_army_ids.filter(id=>prepared.state.field_armies?.[id]?.manpower>0),phase.battle_engine):null;
+ const recommended=legalRetreat?preferredPrebattleRetreat(prepared,c,f):null;
+ const preferredRetreatCityId=recommended||legalRetreat?.destination_city_id||null;
+ const chosenRoute=preferredRetreatCityId&&c?B.sortRetreatRoutes([...B.buildLandRetreatRoutes(prepared.state,c,b,f,b.defender_army_ids,phase.battle_engine),...B.buildSeaRetreatRoutes(prepared.state,c,b,f,b.defender_army_ids,phase.battle_engine)]).find(x=>x.destination_city_id===preferredRetreatCityId):null;
+ // With low morale or overwhelming assault, survival matters. But never repeatedly sacrifice
+ // ten percent of the army for a marginal risk on a weak or isolated withdrawal route.
+ const goodWithdrawal=Boolean(chosenRoute&&chosenRoute.arrival_rate>=.995&&chosenRoute.destination_control===f);
+ let withdraw=Boolean(preferredRetreatCityId)&&(ratio>=1.30||(expectedAssault>=1.35&&goodWithdrawal)||(morale<=28&&expectedAssault>=1.15&&goodWithdrawal));
  let trust=null;if(withdraw&&c){try{trust=Trust.project(prepared.state,c,f,{type:'PREBATTLE_WITHDRAW',battle_id:b.id,retreat_city_id:preferredRetreatCityId});}catch{}if(trust&&!trust.allowed)withdraw=false;}
- return{withdraw,tactic:withdraw?null:'hold_line',reason:trust&&!trust.allowed?'POLITICAL_SURVIVAL_HOLD':withdraw?'BREAKTHROUGH_PREBATTLE_WITHDRAWAL':'CRISIS_HOLD',ratio,effectiveRatio:ratio,morale,threshold:1.30,preferredRetreatCityId:withdraw?preferredRetreatCityId:null,trust_policy:trust};
+ return{withdraw,tactic:withdraw?null:'hold_line',reason:trust&&!trust.allowed?'POLITICAL_SURVIVAL_HOLD':withdraw?'BREAKTHROUGH_PREBATTLE_WITHDRAWAL':'CRISIS_HOLD',ratio,effectiveRatio:ratio,morale,threshold:1.30,assaultRiskRatio:expectedAssault,withdrawalArrivalRate:chosenRoute?.arrival_rate??null,preferredRetreatCityId:withdraw?preferredRetreatCityId:null,trust_policy:trust};
 }
 module.exports={META,LIFECYCLE_CONFIG,assess,buildSnapshot,crisisCandidates,defenseDecision,noteChosenAction,noteNormalAction,noteSecondaryAction,noteNoLegalCrisisAction,safeMoveCandidate,garrisonCandidate,navalEscapeCandidate,chiefArmy,landNeighbors,troopsAt,distance,directThreat,nextTurnThreat,safeRetreatTargets,supplyMonths,lifecycle};
 };
@@ -2221,7 +2364,7 @@ function valuePlan(m,c,normal,allowRepair=true){
 }
 function operationalCandidates(m,c){
  const crisis=Crisis.crisisCandidates(m,c,'BRITISH');
- if(crisis.assessment.active){
+ if(crisis.assessment.active||crisis.operation_active){
   const profile=[{id:'BREAKTHROUGH_CRISIS',score:200,reason:'総司令官保存と戦線再構築'}];
   const crisisRows=[...crisis.candidates,...Logistics.transportCandidates(m,c,'BRITISH'),...Logistics.disperseCandidates(m,c,'BRITISH'),...Logistics.requisitionCandidates(m,c,'BRITISH'),...[Logistics.chiefSupplyCandidate(m,c,'BRITISH')].filter(Boolean)];
   Operations.applyRows(m,c,'BRITISH',crisisRows);
