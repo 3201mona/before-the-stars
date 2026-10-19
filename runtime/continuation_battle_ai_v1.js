@@ -80,9 +80,26 @@
  }
  function patch(api,faction){
    if(!api||api.__continuationBattleAiV1)return;
-   const originalChoose=api.chooseAction?.bind(api),originalExecute=api.executeNonBattle?.bind(api);
+   const originalChoose=api.chooseAction?.bind(api),originalExecute=api.executeNonBattle?.bind(api),originalAvailable=api.available?.bind(api);
+   // A continuing battle consumes no command. Do not suppress the entire enemy
+   // turn merely because ordinary command points have been exhausted.
+   const enemyTurn=(m)=>m?.player_faction===opposite(faction)&&m?.current_faction===m.player_faction;
+   const continuing=(m)=>Object.values(m?.battles||{}).some(b=>
+     [b.attacker_faction,b.defender_faction].includes(faction)&&
+     ['active','awaiting_continuation'].includes(b.status)&&(b.history||[]).length>0);
+   const freeContinuation=(m)=>{
+     const month=`${m.calendar?.year}-${String(m.calendar?.month||0).padStart(2,'0')}`;
+     const battle=Object.values(m.battles||{}).find(b=>b.attacker_faction===faction&&
+       b.status==='active'&&(b.history||[]).length>0&&b.last_resolution?.month!==month);
+     return battle?{type:'CONTINUE',battle_id:battle.id,city:battle.city_id,target:battle.city_id,command_cost:0,strategic_reason:'CONTINUATION_FREE_MONTHLY_RESOLUTION'}:null;
+   };
+   api.available=function(m){return Boolean((originalAvailable&&originalAvailable(m))||(enemyTurn(m)&&continuing(m)));};
    api.continuationBattleReview=(m,c)=>review(m,c,faction);
-   api.chooseAction=function(m,c,...args){const action=review(m,c,faction);if(action)return action;return originalChoose?originalChoose(m,c,...args):null;};
+   api.chooseAction=function(m,c,...args){
+     const action=review(m,c,faction);if(action)return action;
+     if(Number(m?.factions?.[faction]?.commands_remaining||0)<=0)return freeContinuation(m);
+     return originalChoose?originalChoose(m,c,...args):null;
+   };
    api.executeNonBattle=function(m,c,a,engines){
      if(a?.type==='BATTLE_REINFORCEMENT'){
        const out=B.reinforceBattle(m,a.battle_id,a.ids,c,E);
