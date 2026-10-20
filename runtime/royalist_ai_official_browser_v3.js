@@ -1623,7 +1623,7 @@ function attackReadiness(m,c,f,id){
  for(const route of ['ATTACK','LANDING_ATTACK']){let targets=[];try{targets=C.getCommandCandidates(c,{command_type:route,origin_city_id:id,faction:f});}catch{}
  for(const target of targets){if(P.militaryControl(m,target,political)!==enemy)continue;try{
   const virtual=CombatProjection.copy(m);for(const army of Object.values(virtual.field_armies))army.acted_this_month=false;
-  if(route==='LANDING_ATTACK'){const rate=N.seaRouteProfile(c,c.cities[id].geography.sea_zone_id,c.cities[target].geography.sea_zone_id,f,'LANDING',`${m.calendar.year}-${String(m.calendar.month).padStart(2,'0')}`).arrival_rate;for(const armyId of ids)virtual.field_armies[armyId].manpower=Math.floor(virtual.field_armies[armyId].manpower*rate);}
+  if(route==='LANDING_ATTACK'){const rate=N.seaRouteProfile(c,c.cities[id].geography.sea_zone_id,c.cities[target].geography.sea_zone_id,f,'LANDING',`${m.calendar.year}-${String(m.calendar.month).padStart(2,'0')}`).arrival_rate;if(rate<.70)continue;for(const armyId of ids)virtual.field_armies[armyId].manpower=Math.floor(virtual.field_armies[armyId].manpower*rate);}
   const pre=B.prepareBattle(virtual,{origin_city_id:id,city_id:target,attacker_army_ids:ids,leader_army_id:B.selectBattlefieldLeader(virtual,ids),route_type:route==='ATTACK'?'LAND_ATTACK':route},c,phase);
   const cfg=phase.battle_engine,t=cfg.tactics.normal_attack,raw=B.basePower(pre.attacker,cfg,false)/Math.max(1,B.basePower(pre.defender,cfg,true));
   const expected=raw*t.power/(cfg.tactics[pre.battle.tactic[enemy]]||cfg.tactics.hold_line).power;
@@ -1896,7 +1896,47 @@ function fieldCandidates(m,c,f,ctx=context(m,c,f)){
  }
  return rows;
 }
+// Operational landing policy: pay the casualty cost BEFORE ranking a tactical victory.
+// Ordinary LANDING_ATTACK remains legal for the human player.  These are AI-only limits.
+function landingAssessment(m,c,f,ids,origin,target){
+ const from=c.cities?.[origin],to=c.cities?.[target];
+ if(!from||!to||!from.geography?.sea_zone_id||!to.geography?.sea_zone_id)return{allowed:false,reason:'LANDING_ROUTE_UNKNOWN'};
+ const period=`${m.calendar.year}-${String(m.calendar.month).padStart(2,'0')}`;
+ // Crossing a recognized land/strait link never justifies a lossy sea landing.
+ if(C.getCommandCandidates(c,{command_type:'ATTACK',origin_city_id:origin,faction:f}).includes(target))return{allowed:false,reason:'LANDING_DUPLICATES_LAND_ATTACK'};
+ const profile=N.seaRouteProfile(c,from.geography.sea_zone_id,to.geography.sea_zone_id,f,'LANDING',period);
+ const rate=Number(profile.arrival_rate);
+ if(!Number.isFinite(rate)||rate<=0)return{allowed:false,reason:'LANDING_NO_ARRIVAL'};
+ const departed=ids.reduce((sum,id)=>sum+Math.max(0,Number(m.field_armies?.[id]?.manpower)||0),0);
+ const arrived=ids.reduce((sum,id)=>sum+Math.max(0,Math.floor((Number(m.field_armies?.[id]?.manpower)||0)*rate)),0);
+ const lost=departed-arrived;
+ const foe=enemyOf(f),near=Crisis.landNeighbors(c,target);
+ const counter=Object.values(m.field_armies||{}).filter(a=>a.faction===foe&&!a.battle_id&&a.manpower>0&&near.includes(a.location_city_id)).reduce((sum,a)=>sum+Number(a.manpower||0),0);
+ const targetDefenders=Object.values(m.field_armies||{}).filter(a=>a.faction===foe&&a.manpower>0&&a.location_city_id===target).reduce((sum,a)=>sum+Number(a.manpower||0),0)+(m.garrisons?.[target]?.faction===foe?Number(m.garrisons[target].manpower)||0:0);
+ const landEscape=near.some(id=>control(m,id)===f&&(Object.values(m.field_armies||{}).some(a=>a.faction===f&&a.manpower>0&&a.location_city_id===id)||(m.garrisons?.[id]?.faction===f&&m.garrisons[id].manpower>=100)));
+ const seaEscape=Boolean(N.isPortOperational(to)&&rate>=.90&&Object.values(c.cities||{}).some(x=>x.city_id!==target&&x.geography?.sea_zone_id===to.geography.sea_zone_id&&control(m,x.city_id)===f&&N.isPortOperational(x)));
+ const hasEscape=landEscape||seaEscape;
+ const counterRatio=counter/Math.max(1,arrived);
+ const costly=(rate>=.90?lost>1800:lost>950);
+ if(ids.some(id=>chief(m,m.field_armies[id]))&&rate<.90)return{allowed:false,reason:'LANDING_CHIEF_TRANSIT_RISK',rate,lost,arrived};
+ // Without sea control, only a genuinely tiny, almost undefended, secure bridgehead
+ // could justify the gamble. Never sacrifice thousands to seize a minor garrison.
+ if(rate<.70){
+  const importance=Number(to.politics?.political_importance)||1;
+  const minorSurgical=importance>=4&&lost<=250&&arrived>=100&&targetDefenders<=60&&counter===0&&hasEscape;
+  if(!minorSurgical)return{allowed:false,reason:'LANDING_UNCONTROLLED_SEA_HIGH_ATTRITION',rate,lost,arrived,counter,hasEscape};
+ }
+ if(costly)return{allowed:false,reason:'LANDING_EXCESSIVE_EXPECTED_LOSS',rate,lost,arrived};
+ // After occupation the beachhead cannot be held against an immediately adjacent army.
+ // A strait landing without a usable retreat route requires extra local superiority.
+ if(counter>=300&&(counterRatio>(hasEscape?1.05:.72)))return{allowed:false,reason:'LANDING_COUNTERATTACK_TRAP',rate,lost,arrived,counter,hasEscape};
+ if(!hasEscape&&rate<.90&&counter>Math.max(100,arrived*.25))return{allowed:false,reason:'LANDING_ISOLATED_BEACHHEAD',rate,lost,arrived,counter};
+ const penalty=lost/65+Math.max(0,1-rate)*22+(hasEscape?0:counterRatio*18);
+ return{allowed:true,reason:'LANDING_OPERATIONALLY_ACCEPTABLE',rate,lost,arrived,counter,hasEscape,targetDefenders,penalty,worst_stage:profile.worst_stage.key};
+}
 function attackCandidate(m,c,f,ids,origin,target,route,ctx){
+ const landing=route==='LANDING_ATTACK'?landingAssessment(m,c,f,ids,origin,target):null;
+ if(landing&&!landing.allowed)return null;
  if(ids.some(id=>!ready(m,m.field_armies[id])||B.isRetreatRecoveryAttackLocked?.(m,id)))return null;
  let state=require('./combat_projection_v1.js').copy(m),arrival=1;
  if(route==='LANDING_ATTACK'){
@@ -1913,8 +1953,8 @@ function attackCandidate(m,c,f,ids,origin,target,route,ctx){
  if(expected<1.05||worst<(containsChief?1.12:.80))return null;
  const action={type:'ATTACK',ids,leader,origin,target,route:route==='LANDING_ATTACK'?route:'ATTACK',tactic,strategic_reason:'CURRENT_FRONT_OPPORTUNITY',operational_reason:'EFFECTIVE_POWER_ATTACK'};
  const leave=departure(m,c,f,action,ctx);if(!leave.safe)return null;
- const score=67+cityValue(m,c,f,target)*.35+Math.min(32,(expected-1)*20)+(worst>=cfg.result_thresholds.victory?14:0)-leave.penalty;
- return {operation:'EFFECTIVE_POWER_ATTACK',score,combat_value:{expected,worst,arrival,departure:leave},action};
+ const score=67+cityValue(m,c,f,target)*.35+Math.min(32,(expected-1)*20)+(worst>=cfg.result_thresholds.victory?14:0)-leave.penalty-(landing?.penalty||0);
+ return {operation:'EFFECTIVE_POWER_ATTACK',score,combat_value:{expected,worst,arrival,departure:leave,landing_assessment:landing},action};
 }
 function movementCandidates(m,c,f,ctx){
  const rows=[],enemy=enemyOf(f),owned=id=>control(m,id)===f;
@@ -1949,7 +1989,9 @@ function movementCandidates(m,c,f,ctx){
     let score=mission.bonus+(retreat?116:expansion?47+cityValue(m,c,f,target)*.55:concentration?68+Math.min(30,(threat-1)*24):54)-reverse-leave.penalty;
     if(route==='SEA_MOVE'){
      const arrival=N.seaRouteProfile(c,c.cities[origin].geography.sea_zone_id,c.cities[target].geography.sea_zone_id,f,'LANDING',`${m.calendar.year}-${String(m.calendar.month).padStart(2,'0')}`).arrival_rate;
-     score-=Math.max(0,1-arrival)*60;
+     if(arrival<.70)continue; // catastrophic loss is never an ordinary redeployment
+     const embarked=ids.reduce((sum,id)=>sum+Number(m.field_armies[id]?.manpower||0),0);
+     score-=Math.max(0,1-arrival)*60+Math.floor(embarked*(1-arrival))/65;
     }
     rows.push({operation:retreat?'CURRENT_FRONT_RETREAT':'CURRENT_FRONT_MOVE',score,reverse_move_penalty:reverse,departure:leave,mission,action});
    }
