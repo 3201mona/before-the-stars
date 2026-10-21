@@ -17,6 +17,19 @@ const chief=(m,a)=>m.commanders?.[a?.commander_id]?.role==='総司令官';
 const value=(c,id)=>4*(Number(c.cities?.[id]?.politics?.political_importance)||1)+(c.cities?.[id]?.geography?.is_port?9:0);
 const enabled=f=>window.BTS_OPERATIONAL_AI_FLAGS?.[f]!==false;
 const copy=x=>JSON.parse(JSON.stringify(x));
+// Opt-in, bounded diagnosis only. Does not change AI scores, decisions or game rules.
+const operationAuditEnabled=()=>window.BTS_OPERATION_AUDIT_ENABLED===true;
+function operationAuditStart(m,f){
+ if(!operationAuditEnabled())return null;
+ const counters={};
+ return {faction:f,month:`${m.calendar.year}-${String(m.calendar.month).padStart(2,'0')}`,
+  commands:Number(m.factions?.[f]?.commands_remaining||0),
+  bump(reason){counters[reason]=(counters[reason]||0)+1;},
+  finish(eligible){const rows=window.BTS_OPERATION_AUDIT_LOG||(window.BTS_OPERATION_AUDIT_LOG=[]);
+   rows.push({faction:this.faction,month:this.month,commands:this.commands,eligible,counters});
+   if(rows.length>240)rows.splice(0,rows.length-240);
+  }};
+}
 // This helper uses real engine summaries, not soldier counts; forecast still excludes future dice.
 function forecastPower(m,c,ids,garrison,id,attacker){
  const a=ids.filter(x=>m.field_armies?.[x]&&m.field_armies[x].manpower>0);
@@ -58,26 +71,26 @@ function horizonValue(row,c){
  if(['RECRUIT','TRAINING','IMPROVE','FORM'].includes(a.type))return row.score+Math.min(8,Number(row.field_value?.power_gain||0)/140);
  return row.score;
 }
-function planCandidate(m,c,f,origin,target,ids,alternativeRows){
- if(ids.some(id=>!ready(m.field_armies[id])||chief(m,m.field_armies[id])))return null;
- if(!sourceSafety(m,c,f,origin,ids,target))return null;
+function planCandidate(m,c,f,origin,target,ids,alternativeRows,audit=null){
+ if(ids.some(id=>!ready(m.field_armies[id])||chief(m,m.field_armies[id]))){audit?.bump('UNIT_UNREADY_OR_COMMANDER_IN_CHIEF');return null;}
+ if(!sourceSafety(m,c,f,origin,ids,target)){audit?.bump('ORIGIN_CANNOT_BE_SAFELY_LEFT');return null;}
  const reserve=reserved(m,c,f,target,ids);
- if(!reserve.length)return null;
- if((m.factions?.[f]?.commands_remaining||0)<2)return null;
+ if(!reserve.length){audit?.bump('NO_ADJACENT_RESERVE');return null;}
+ if((m.factions?.[f]?.commands_remaining||0)<2){audit?.bump('NOT_ENOUGH_COMMANDS_FOR_TWO_STEP_PLAN');return null;}
  const cohorts=reserve.slice(0,3);
- let first;try{first=B.prepareBattle(m,{origin_city_id:origin,city_id:target,attacker_army_ids:ids,leader_army_id:B.selectBattlefieldLeader(m,ids),route_type:'LAND_ATTACK'},c,phase);}catch{return null;}
- if(first.battle.unopposed||first.battle.attacker_faction!==f||first.battle.defender_faction!==enemy(f))return null;
+ let first;try{first=B.prepareBattle(m,{origin_city_id:origin,city_id:target,attacker_army_ids:ids,leader_army_id:B.selectBattlefieldLeader(m,ids),route_type:'LAND_ATTACK'},c,phase);}catch{audit?.bump('BATTLE_PREVIEW_INVALID');return null;}
+ if(first.battle.unopposed||first.battle.attacker_faction!==f||first.battle.defender_faction!==enemy(f)){audit?.bump('NO_CONTESTED_BATTLE');return null;}
  const attacker=forecastPower(m,c,ids,null,target,true);
  const initialEnemy=forecastPower(m,c,first.battle.defender_army_ids||[],garrison(m,target,enemy(f)),target,false);
- if(!initialEnemy)return null;
+ if(!initialEnemy){audit?.bump('ZERO_ENEMY_POWER');return null;}
  const ratio=attacker/initialEnemy;
  // The engine's initial engagement needs to survive pessimistic dice; no suicidal bait.
- if(ratio<.89||ratio>1.08)return null;
+ if(ratio<.89||ratio>1.08){audit?.bump('INITIAL_POWER_RATIO_OUTSIDE_089_108');return null;}
  // A direct push with a strong existing assault is superior to locking troops for a month.
- if(alternativeRows.some(row=>row.action?.type==='ATTACK'&&row.action.target===target&&Number(row.combat_value?.expected)>1.32&&row.score>=90))return null;
+ if(alternativeRows.some(row=>row.action?.type==='ATTACK'&&row.action.target===target&&Number(row.combat_value?.expected)>1.32&&row.score>=90)){audit?.bump('DIRECT_ASSAULT_IS_BETTER');return null;}
  // Don't repeatedly reopen the exact target; reset after three months.
  const previous=planSlot(m,f,false)?.cooldowns?.[target]||0;
- if(previous&&serial(m)-previous<4)return null;
+ if(previous&&serial(m)-previous<4){audit?.bump('TARGET_COOLDOWN_ACTIVE');return null;}
  let best=null;
  for(const reinforcement of cohorts){
   const reinforcementPower=forecastPower(m,c,[reinforcement.id],null,target,true);
@@ -85,7 +98,7 @@ function planCandidate(m,c,f,origin,target,ids,alternativeRows){
   const projected=(attacker+reinforcementPower)/(initialEnemy+enemyReinf*.85);
   const noCounter=(attacker+reinforcementPower)/initialEnemy;
   // One reinforcement must decide the matter despite one plausible counter-reinforcement.
-  if(projected<1.35||noCounter<1.5)continue;
+  if(projected<1.35||noCounter<1.5){audit?.bump('RESERVE_NOT_DECISIVE_ENOUGH');continue;}
   // City value, breakthrough opportunity, lost resources, alternate use and two commands priced together.
   const gain=25+value(c,target)*1.15+(Math.min(1.95,projected)-1.3)*34;
   const risk=(1.08-ratio)*35+(enemyReinf>0?9:0);
@@ -94,23 +107,27 @@ function planCandidate(m,c,f,origin,target,ids,alternativeRows){
   const item={operation:'DELIBERATE_ENGAGEMENT',score,forecast:{horizon_months:3,first_ratio:ratio,decisive_ratio:projected,enemy_reinforcement_power:enemyReinf,own_reinforcement_id:reinforcement.id,alternative_best:alternativeRows[0]?.operation||null,alternative_score:Math.max(0,...alternativeRows.map(r=>horizonValue(r,c)))},action:{type:'ATTACK',ids,leader:B.selectBattlefieldLeader(m,ids),origin,target,route:'ATTACK',tactic:'normal_attack',strategic_reason:'THREE_MONTH_OPERATION_COMPARISON',operational_reason:'DELIBERATE_ENGAGEMENT',planned_reinforcement_id:reinforcement.id}};
   if(!best||score>best.score)best=item;
  }
+ if(best)audit?.bump('VALID_PLANNED_ATTACK');else audit?.bump('NO_VIABLE_RESERVE');
  return best;
 }
 function candidates(m,c,f,normal){
- const base=normal?.candidates||[];
- if(!enabled(f)||!Number(m.factions?.[f]?.commands_remaining)||Object.values(m.battles||{}).some(b=>activeBattle(b)&&b.attacker_faction===f&&b.history?.length))return [];
+ const base=normal?.candidates||[],audit=operationAuditStart(m,f);
+ if(!enabled(f)||!Number(m.factions?.[f]?.commands_remaining)||Object.values(m.battles||{}).some(b=>activeBattle(b)&&b.attacker_faction===f&&b.history?.length)){audit?.bump('DISABLED_NO_COMMANDS_OR_EXISTING_CONTINUATION');audit?.finish(0);return [];}
  const slots=planSlot(m,f,false),current=(slots?.plans||[]).find(x=>!x.closed&&agePlan(m,x)<=3);
- if(current)return [];
+ if(current){audit?.bump('PLAN_ALREADY_ACTIVE');audit?.finish(0);return [];}
  const rows=[];
  for(const origin of new Set(Object.values(m.field_armies||{}).filter(a=>a.faction===f&&ready(a)).map(a=>a.location_city_id))){
   const armies=Object.values(m.field_armies||{}).filter(a=>a.faction===f&&a.location_city_id===origin&&ready(a)&&!chief(m,a));
-  if(!armies.length)continue;
+  if(!armies.length){audit?.bump('NO_READY_NON_HQ_ARMIES_AT_ORIGIN');continue;}
   let targets=[];try{targets=C.getCommandCandidates(c,{command_type:'ATTACK',origin_city_id:origin,faction:f});}catch{}
   const groups=armies.slice(0,6).map(a=>[a.id]); // Never assemble a fictitious or commander-ineligible combined group.
-  for(const target of targets.filter(id=>control(m,id)===enemy(f)&&land(c,origin,id))){
-   for(const ids of groups){const item=planCandidate(m,c,f,origin,target,ids,base);if(item)rows.push(item);}
+  const eligibleTargets=targets.filter(id=>control(m,id)===enemy(f)&&land(c,origin,id));
+  if(!eligibleTargets.length)audit?.bump('NO_ADJACENT_ENEMY_HELD_CITY');
+  for(const target of eligibleTargets){
+   for(const ids of groups){const item=planCandidate(m,c,f,origin,target,ids,base,audit);if(item)rows.push(item);}
   }
  }
+ audit?.finish(rows.length);
  return rows.sort((a,b)=>b.score-a.score);
 }
 function battleForPlan(m,f,p){return Object.values(m.battles||{}).find(b=>b.attacker_faction===f&&b.city_id===p.target&&b.origin_city_id===p.origin&&b.attacker_army_ids?.some(id=>p.first_ids.includes(id))&&activeBattle(b));}

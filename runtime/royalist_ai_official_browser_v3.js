@@ -2227,7 +2227,47 @@ function candidates(m,c,faction,existing=[]){
  }
  return rows.sort((a,b)=>b.score-a.score);
 }
-module.exports={candidates};
+
+// A formation is chosen for its primary mission, never to manufacture a two-stage assault.
+// This tie-break ONLY exchanges scores of already-valid, almost-equivalent formation rows.
+// It cannot increase the best FORM score, create a formation, or alter any non-FORM row.
+function optionalReserveFlexibility(m,c,faction,cityId){
+ if(P.militaryControl(m,cityId,political)!==faction)return null;
+ const local=Object.values(m.field_armies||{}).filter(a=>a.faction===faction&&a.location_city_id===cityId&&a.manpower>0&&!a.battle_id);
+ // A new army can retain this city's control while its sole mobile regular leaves.
+ // Cities already holding multiple field armies or a garrison need no such preference.
+ if(local.length!==1||m.garrisons?.[cityId]?.faction===faction&&Number(m.garrisons[cityId].manpower)>0)return null;
+ const mobile=local[0];
+ if(Number(mobile.manpower)<500||m.commanders?.[mobile.commander_id]?.role==='総司令官')return null;
+ const foe=faction==='PATRIOT'?'BRITISH':'PATRIOT';
+ for(const target of landNeighbors(c,cityId)){
+  if(P.militaryControl(m,target,political)!==foe)continue;
+  const other=Object.values(m.field_armies||{}).find(a=>a.faction===faction&&a.location_city_id!==cityId&&a.manpower>=500&&!a.battle_id&&
+    m.commanders?.[a.commander_id]?.role!=='総司令官'&&landNeighbors(c,target).includes(a.location_city_id));
+  if(other)return {city:cityId,adjacent_contested_city:target,existing_mobile_army:mobile.id,other_front_army:other.id};
+ }
+ return null;
+}
+function preferEquivalentFlexibleFormation(m,c,faction,rows){
+ const forms=rows.filter(r=>r.operation==='PURPOSEFUL_RESERVE_FORMATION'&&r.action?.type==='FORM'&&
+   r.action?.city&&r.score>0&&Number.isFinite(r.score)&&r.operational_readiness?.admissible!==false);
+ if(forms.length<2)return rows;
+ const ranked=forms.slice().sort((a,b)=>b.score-a.score),top=ranked[0];
+ if(optionalReserveFlexibility(m,c,faction,top.action.city))return rows;
+ // Max 2 score points of primary difference; same mission and same commander ensure
+ // no material strength, mission, resource or command-count trade is disguised as a tie.
+ const near=ranked.slice(1).filter(r=>top.score-r.score<=2&&
+   r.formation_value?.purpose===top.formation_value?.purpose&&
+   r.action.commander_id===top.action.commander_id&&
+   Math.abs((r.formation_value?.power||0)-(top.formation_value?.power||0))<=Math.max(1,(top.formation_value?.power||0)*.05));
+ for(const r of near){const benefit=optionalReserveFlexibility(m,c,faction,r.action.city);if(!benefit)continue;
+  const score=r.score;r.score=top.score;top.score=score;
+  r.formation_value={...r.formation_value,flexible_deployment:{...benefit,secondary_tie_break:true,original_score:score}};
+  return rows;
+ }
+ return rows;
+}
+module.exports={candidates,preferEquivalentFlexibleFormation};
 };
 modules['AI_OFFICIAL_CURRENT/movement_discipline_v1.js']=function(require,module,exports){
 'use strict';
@@ -2401,7 +2441,7 @@ function valuePlan(m,c,normal,allowRepair=true){
   const a=row.action,key=[a.type,a.city,a.army_id,a.origin,a.target,a.operation,a.zone,a.tier,a.kind,a.route,a.troops,a.food,a.materials,(a.ids||[]).join(',')].join('|');
   if(!dedup.has(key)||dedup.get(key).score<row.score)dedup.set(key,row);
  }
- const evaluated=require('./operational_readiness_v1.js').applyRows(m,c,'BRITISH',[...dedup.values()]);const candidates=evaluated.filter(row=>row.score>0).sort((a,b)=>b.score-a.score);
+ const evaluated=require('./operational_readiness_v1.js').applyRows(m,c,'BRITISH',[...dedup.values()]);ReserveFormation.preferEquivalentFlexibleFormation(m,c,'BRITISH',evaluated);const candidates=evaluated.filter(row=>row.score>0).sort((a,b)=>b.score-a.score);
  return {...normal,readiness_rejections:evaluated.filter(r=>r.operational_readiness?.admissible===false),candidates,choice:candidates[0]||null,firstVoteCampaign};
 }
 function operationalCandidates(m,c){
