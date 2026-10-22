@@ -1,8 +1,8 @@
 {
   "public_version": "1.0.0-beta.6",
   "label": "Ver.1.0 β6",
-  "release_date": "2026-10-21",
+  "release_date": "2026-10-22",
   "entry": "index.html",
   "game": "runtime/game.html",
-  "patch_id": "20261021-formation-flexibility-depot-sync"
+  "patch_id": "20261022-blockade-combat-percy-reserve"
 }
