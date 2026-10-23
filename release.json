@@ -1,8 +1,9 @@
 {
-  "public_version": "1.0.0-beta.7",
-  "label": "Ver.1.0 β7",
-  "release_date": "2026-10-22",
+  "public_version": "1.0.0-beta.8",
+  "label": "Ver.1.0 β8",
+  "release_status": "published",
+  "release_date": "2026-10-23",
   "entry": "index.html",
   "game": "runtime/game.html",
-  "patch_id": "20261022-beta7-blockade-combat-percy-reserve"
+  "patch_id": "20261023-royalist-parallel-votes-budget5000"
 }
