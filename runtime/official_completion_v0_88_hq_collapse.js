@@ -17,7 +17,7 @@
 
   let applying=false,autoTimer=null,conclusionVisible=false,slideTimer=null;
   const rawMilitarySetState=ui.setState.bind(ui),rawCitySetState=cityUI.setState.bind(cityUI);
-  const developmentTitle=document.querySelector('aside.panel h1');if(developmentTitle)developmentTitle.textContent='BEFORE THE STARS Ver.1.0 β7';
+  const developmentTitle=document.querySelector('aside.panel h1');if(developmentTitle)developmentTitle.textContent='BEFORE THE STARS Ver.1.0 β8';
 
   function hashText(text){let hash=2166136261;for(let i=0;i<text.length;i++){hash^=text.charCodeAt(i);hash=Math.imul(hash,16777619);}return(hash>>>0).toString(16).padStart(8,'0');}
   function payloadForHash(save){return JSON.stringify({schema:save.schema,game_version:save.game_version,metadata:save.metadata,military:save.military,city:save.city});}
