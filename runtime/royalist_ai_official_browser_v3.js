@@ -2276,6 +2276,174 @@ function swapArmyValue(m,army){if(!army)return 0;const cmd=m.commanders?.[army.c
 function crossSwapPenalty(m,faction,row){const a=row.action||{};if(a.type!=='MOVE'||(a.ids||[]).length!==1)return 0;const id=a.ids[0],army=m.field_armies?.[id],origin=a.origin||army?.location_city_id,target=a.target;if(!army||!origin||!target)return 0;const prior=(m.action_log||[]).slice().reverse().find(x=>x.faction===faction&&x.type==='ARMY_MOVED'&&Number(x.year)===Number(m.calendar.year)&&Number(x.month)===Number(m.calendar.month)&&x.army_id!==id&&x.origin_city_id===target&&x.destination_city_id===origin);if(!prior)return 0;const other=m.field_armies?.[prior.army_id];if(!other)return 0;const roleA=m.commanders?.[army.commander_id]?.role||'',roleB=m.commanders?.[other.commander_id]?.role||'';if(roleA!==roleB&&(roleA==='総司令官'||roleB==='総司令官'||roleA==='方面軍司令官'||roleB==='方面軍司令官'))return 0;const va=swapArmyValue(m,army),vb=swapArmyValue(m,other),ratio=va/vb;if(ratio>=.82&&ratio<=1.22)return 34;if(ratio>=.70&&ratio<=1.43)return 12;return 0;}
 module.exports={crossSwapPenalty};
 };
+modules['AI_OFFICIAL_CURRENT/royalist_vote_portfolio_v1.js']=function(require,module,exports){
+'use strict';
+// Beta 8 experiment: concurrent strategic objectives, translated into executable
+// land detachment, civic work and paid campaigns. Never overrides crisis command.
+const E=require('../runtime/army_phase2_engine_v0_74_retreat.js');
+const C=require('../runtime/city_command_engine_v0_18.js');
+const P=require('../runtime/political_phase_engine_v0_77_portraits.js');
+const Civil=require('./civil_operations_v1.js');
+const Crisis=require('./breakthrough_crisis_v2.js');
+const Logistics=require('./logistics_strategy_v1.js');
+const F=require('../source_data/phase2_config_v0_9_funds.json');
+const PC=require('../source_data/political_phase_config_v0_1.json');
+const copy=x=>JSON.parse(JSON.stringify(x));
+const now=m=>m.calendar.year*12+m.calendar.month;
+const month=m=>`${m.calendar.year}-${String(m.calendar.month).padStart(2,'0')}`;
+const control=(m,id)=>P.militaryControl(m,id,PC);
+const land=(c,id)=>(c.topology?.edges||[]).filter(e=>!String(e.type||'').startsWith('water_')&&e.counts_as_land_adjacency!==false&&(e.a===id||e.b===id)).map(e=>e.a===id?e.b:e.a);
+const troops=(m,id,f)=>Object.values(m.field_armies||{}).filter(a=>a.faction===f&&a.location_city_id===id&&a.manpower>0).reduce((n,a)=>n+a.manpower,0)+(m.garrisons?.[id]?.faction===f?Number(m.garrisons[id].manpower)||0:0);
+const ownArmy=m=>Object.values(m.field_armies||{}).filter(a=>a.faction==='BRITISH'&&a.manpower>0&&!a.battle_id);
+const candidatesAt=(m,c,id)=>({own:troops(m,id,'BRITISH'),enemy:troops(m,id,'PATRIOT'),adjEnemy:land(c,id).reduce((n,x)=>n+troops(m,x,'PATRIOT'),0)});
+const politicsCount=m=>(m.action_log||[]).filter(x=>x.faction==='BRITISH'&&x.year===m.calendar.year&&x.month===m.calendar.month&&['OPINION_CAMPAIGN_EXECUTED','CIVIL_SECURITY_EXECUTED','STOCKPILE_AID_EXECUTED'].includes(x.type)).length;
+const isOpenFront=m=>now(m)<1775*12+9; // No political expedition during the opening Worcester--Boston contest.
+function statePlan(m,c){
+ const votes=P.voteTally(c,PC).BRITISH;
+ m.ai_strategy_state=m.ai_strategy_state||{};
+ const holder=m.ai_strategy_state.BRITISH=m.ai_strategy_state.BRITISH||{};
+ const prior=holder.vote_portfolio;
+ if(votes>=2){holder.vote_portfolio={active:false,completed_at:month(m),votes,goals:['PRESERVE_FRONT','SUSTAIN_FIELD_FORCE']};return holder.vote_portfolio;}
+ const cities=Object.values(c.cities||{}),summary=P.stateSummaries(c,PC),ranked=[];
+ for(const s of summary){
+  if(s.vote==='BRITISH')continue;
+  const rows=cities.filter(city=>(city.parent_colony_id==='ME'?'MA':city.parent_colony_id)===s.colony_id);
+  if(!rows.length)continue;
+  const ownCities=rows.filter(city=>control(m,city.city_id)==='BRITISH'),enemyCities=rows.filter(city=>control(m,city.city_id)==='PATRIOT');
+  const gap=Math.max(0,Number(s.opinion)-39.9);
+  const pop=rows.reduce((n,city)=>n+Number(city.bases?.population||0),0)||1;
+  const best=rows.map(city=>({id:city.city_id,share:Number(city.bases?.population||0)/pop,own:control(m,city.city_id)==='BRITISH',risk:candidatesAt(m,c,city.city_id)})).sort((a,b)=>(Number(b.own)-Number(a.own))*3+(b.share-a.share)*3-(b.risk.adjEnemy-a.risk.adjEnemy)/2000)[0];
+  if(!best)continue;
+  const region=['NC','SC','GA','VA'].includes(s.colony_id)?1:0;
+  const inRegion=ownCities.length>0||rows.some(city=>land(c,city.city_id).some(id=>control(m,id)==='BRITISH'));
+  if(!inRegion&&gap>19)continue; // No speculative, costly cross-continent politics.
+  const continuity=prior?.target===s.colony_id?21:0;
+  const score=115-gap*4+Math.min(3,ownCities.length)*10-enemyCities.length*7+region*8+(inRegion?13:0)+continuity-(best.risk.adjEnemy>3600?20:0);
+  ranked.push({state:s.colony_id,score,gap,opinion:Number(s.opinion),footprint:ownCities.length,enemyFootprint:enemyCities.length,city:best.id,share:best.share,region,inRegion});
+ }
+ ranked.sort((a,b)=>b.score-a.score||a.gap-b.gap);
+ let selected=ranked[0],held=ranked.find(x=>x.state===prior?.target);
+ if(held&&selected&&selected.state!==held.state&&selected.score-held.score<18)selected=held;
+ // Strategy is a concurrent portfolio. The same southern base is allowed to
+ // serve both base-building and political access, but each order is scored once.
+ holder.vote_portfolio={active:Boolean(selected),votes,target:selected?.state||null,selected:selected||null,
+   goals:['PRESERVE_COMMANDER_IN_CHIEF','SUSTAIN_ACTIVE_FRONT','SOUTHERN_OPERATING_BASE','TWO_STATE_VOTES'],
+   target_since:selected?.state===prior?.target?prior.target_since:month(m),assessed_at:month(m),
+   retargets:(Number(prior?.retargets)||0)+(prior?.target&&selected?.state!==prior.target?1:0),
+   postponed:isOpenFront(m)?'OPENING_FRONT':null};
+ return holder.vote_portfolio;
+}
+function path(m,c,start,end){
+ if(start===end)return [start];
+ const queue=[[start]],seen=new Set([start]);
+ while(queue.length){const route=queue.shift();if(route.length>4)continue;
+  for(const id of land(c,route.at(-1))){if(seen.has(id)||control(m,id)==='PATRIOT'||control(m,id)==='CONFLICT'||troops(m,id,'PATRIOT')>0)continue;
+   seen.add(id);const candidate=[...route,id];if(id===end)return candidate;queue.push(candidate);}
+ }
+ return null;
+}
+function missionRows(m,c,plan){
+ if(!plan?.active||isOpenFront(m)||politicsCount(m)>=2)return [];
+ const data=plan.selected;if(!data||data.score<10)return[];
+ const available=Number(m.factions?.BRITISH?.commands_remaining)||0;if(!available)return[];
+ const treasury=Number(m.factions?.BRITISH?.treasury)||0;
+ const cities=Object.values(c.cities||{}).filter(x=>(x.parent_colony_id==='ME'?'MA':x.parent_colony_id)===data.state);
+ const target=([data.city,...cities.map(x=>x.city_id)].filter((id,i,arr)=>arr.indexOf(id)===i)).sort((a,b)=>Number(control(m,b)==='BRITISH')-Number(control(m,a)==='BRITISH'))[0];
+ if(!target)return[];
+ const crisisRisk=candidatesAt(m,c,target),mission=[];
+ const inState=ownArmy(m).filter(a=>cities.some(city=>city.city_id===a.location_city_id));
+ // Free SECURITY is materially useful only if it changes weighted state opinion.
+ for(const army of inState){
+  if(army.acted_this_month||m.commanders?.[army.commander_id]?.role==='総司令官'||control(m,army.location_city_id)!=='BRITISH')continue;
+  const city=c.cities[army.location_city_id];
+  if(Number(city?.politics?.independence_support)<=5)continue;
+  const r=candidatesAt(m,c,city.city_id);if(r.adjEnemy>Math.max(3000,r.own*1.25))continue;
+  const a={type:'SECURITY',city:city.city_id,commander_id:army.commander_id,strategic_reason:'SECOND_VOTE_CIVIC_MISSION',operational_reason:'DETACHED_FORCE_SECURITY'};
+  try{const p=Civil.preview(m,c,'BRITISH',a),share=Number(city.bases?.population||0)/Math.max(1,cities.reduce((n,x)=>n+Number(x.bases?.population||0),0));
+   mission.push({operation:'PARALLEL_VOTE_SECURITY',score:77+Math.min(23,share*44)+Math.min(12,Math.max(0,8-data.gap)*2),action:a,expected_opinion_delta:(p.before-p.after)*share});
+  }catch{}
+ }
+ // Paid opinion is complementary: uncommitted staff conduct propaganda while
+ // the detached commander can still perform local security in the same month.
+ if(Civil.currentMonthOpinionCount(m,'BRITISH')===0&&treasury>=1200){
+  const reserve=Math.max(700,Math.min(1500,treasury*.18));const boardCash={...m,current_faction:'BRITISH'};
+  let best=null;
+  for(const city of cities)for(const tier of ['SMALL','MEDIUM','LARGE'])try{
+   const p=E.previewOpinionCampaign(boardCash,c,city.city_id,tier,F,null);if(p.before<=p.after||treasury-p.treasury_cost<reserve)continue;
+   const hypothetical={...c,cities:{...c.cities,[city.city_id]:{...city,politics:{...city.politics,independence_support:p.after}}}};
+   const after=P.stateSummaries(hypothetical,PC).find(x=>x.colony_id===data.state),effect=Math.max(0,data.opinion-Number(after?.opinion||data.opinion));
+   if(effect<.7)continue;
+   const finishes=after?.vote==='BRITISH',postGap=Math.max(0,Number(after?.opinion||100)-39.9),secured=control(m,city.city_id)==='BRITISH';
+   // A tier is valuable when it saves several military command turns;
+   // expensive tier spam with a tiny remaining gap is discouraged.
+   const score=65+effect*7.2+(finishes?36:0)+Math.min(9,Math.max(0,6-postGap)*1.5)+(secured?7:0)-p.treasury_cost/33;
+   if(!best||score>best.score)best={operation:'PARALLEL_VOTE_OPINION',score,action:{type:'OPINION',city:city.city_id,tier,commander_id:null,strategic_reason:'SECOND_VOTE_PAID_MISSION',operational_reason:'COMBINED_CIVIC_PAID_CAMPAIGN'},expected_opinion_delta:effect,paid_treasury_cost:p.treasury_cost};
+  }catch{}
+  if(best)mission.push(best);
+ }
+ // A reserve commander is a strategic asset. Form only at a defendable staging
+ // city with a legal, short, no-combat land route to the chosen state.
+ const detached=ownArmy(m).find(a=>a.commander_id==='CMD_BRI_PERCY');
+ const alreadyWorking=inState.some(a=>a.commander_id==='CMD_BRI_PERCY');
+ if(detached&&!alreadyWorking&&!detached.acted_this_month){
+  const routes=cities.map(city=>path(m,c,detached.location_city_id,city.city_id)).filter(Boolean).sort((a,b)=>a.length-b.length);
+  const route=routes[0];if(route?.length>1){const next=route[1],safety=candidatesAt(m,c,next),source=candidatesAt(m,c,detached.location_city_id);
+   if(safety.adjEnemy<=Math.max(750,detached.manpower*1.15)&&safety.enemy===0&&(source.own-detached.manpower>=350||control(m,detached.location_city_id)!=='BRITISH'||m.garrisons?.[detached.location_city_id]?.faction==='BRITISH')){
+    try{if(C.getCommandCandidates(c,{command_type:'MOVE',origin_city_id:detached.location_city_id,faction:'BRITISH'}).includes(next))mission.push({operation:'PARALLEL_VOTE_DETACHMENT_MOVE',score:96-route.length*1.5,action:{type:'MOVE',ids:[detached.id],origin:detached.location_city_id,target:next,route:'MOVE',strategic_reason:'SECOND_VOTE_DETACHMENT',operational_reason:'SAFE_POLITICAL_DETACHMENT_ADVANCE'},route_length:route.length});}catch{}
+   }
+  }
+ }
+ if(!detached&&!inState.length&&(m.political_phase?.commander_reserves?.BRITISH||[]).some(x=>x.id==='CMD_BRI_PERCY')&&treasury>=1450&&available>=2){
+  const sites=Object.keys(c.cities||{}).filter(id=>control(m,id)==='BRITISH').map(id=>({id,routes:cities.map(city=>path(m,c,id,city.city_id)).filter(Boolean).sort((a,b)=>a.length-b.length)})).filter(x=>x.routes[0]?.length<=3).sort((a,b)=>a.routes[0].length-b.routes[0].length);
+  for(const site of sites){const risk=candidatesAt(m,c,site.id),balance=Logistics.balanceFor(m,c,site.id,1000);if(risk.adjEnemy>Math.max(2200,risk.own*1.15)||!balance||balance.months<3)continue;
+   try{E.previewFieldArmyFormation({...m,current_faction:'BRITISH'},site.id,'CMD_BRI_PERCY',F);mission.push({operation:'PARALLEL_VOTE_RESERVE_FORM',score:86-Math.max(0,site.routes[0].length-1)*4,action:{type:'FORM',city:site.id,commander_id:'CMD_BRI_PERCY',strategic_reason:'SECOND_VOTE_DETACHMENT',operational_reason:'CREATE_SAFE_POLITICAL_DETACHMENT'},route_length:site.routes[0].length});break;}catch{}
+  }
+ }
+ return mission;
+}
+function mixRows(m,c,rows){
+ const plan=statePlan(m,c);if(!plan.active||isOpenFront(m))return plan;
+ const objective=plan.target;
+ for(const row of rows){const a=row.action||{},city=c.cities[a.city||a.target];
+  if(!city||city.parent_colony_id!==objective)continue;
+  if(!['ATTACK','MOVE','GARRISON','SECURITY','STOCKPILE_AID','OPINION'].includes(a.type))continue;
+  // A southward political move must not evacuate the last troops from a
+  // friendly, politically aligned staging town.  The June 1776 NC_02 test
+  // branch lost 3 trust when two armies left Halifax without a garrison.
+  // Emergency/crisis moves use a separate evaluation path, unchanged.
+  if(a.type==='MOVE'&&a.origin&&control(m,a.origin)==='BRITISH'){
+   const source=c.cities[a.origin],outgoing=new Set(a.ids||[]),stationed=ownArmy(m).filter(x=>x.location_city_id===a.origin),
+    leaving=stationed.length>0&&stationed.every(x=>outgoing.has(x.id)),
+    guard=m.garrisons?.[a.origin]?.faction==='BRITISH'&&Number(m.garrisons[a.origin].manpower)>=100;
+   if(leaving&&!guard&&Number(source?.politics?.independence_support)<=49){
+    row.score=Math.min(row.score,25);
+    row.strategy_portfolio={vote_goal:objective,safety:'REJECT_UNGUARDED_FRIENDLY_CITY_EVACUATION',source:a.origin};
+    continue;
+   }
+  }
+  // One order can fulfill several strategic goals, but it receives a single
+  // capped shared-benefit credit, never a full bonus per overlapping goal.
+  const voteValue=['SECURITY','OPINION'].includes(a.type)?9:5;
+  const baseValue=plan.selected?.region&&['MOVE','ATTACK','GARRISON'].includes(a.type)?8:2;
+  const shared=Math.min(14,Math.max(voteValue,baseValue)+Math.min(voteValue,baseValue)*.25);
+  row.score+=shared;row.strategy_portfolio={vote_goal:objective,southern_base:plan.selected?.region?objective:null,shared_bonus:shared};
+ }
+ return plan;
+}
+function addCandidates(m,c,rows){
+ const plan=statePlan(m,c),added=missionRows(m,c,plan),available=Number(m.factions?.BRITISH?.commands_remaining)||0;
+ const military=rows.filter(row=>['ATTACK','MOVE','RECRUIT','IMPROVE','TRAINING','TRANSPORT'].includes(row.action?.type)&&!String(row.action?.strategic_reason||'').includes('VOTE')).sort((a,b)=>b.score-a.score)[0];
+ for(const row of added){
+  if(available===1&&military?.score>=68)continue;
+  if(military?.score>=125)row.score=Math.min(row.score,military.score-24);
+  else if(military?.score>=100)row.score=Math.min(row.score,military.score-9);
+  row.strategy_portfolio={vote_goal:plan.target,southern_base:plan.selected?.region?plan.target:null,mission:true};
+  if(row.score>0)rows.push(row);
+ }
+ return plan;
+}
+module.exports={statePlan,missionRows,mixRows,addCandidates};
+};
 modules['AI_OFFICIAL_CURRENT/royalist_strategy_ai_v9_official.js']=function(require,module,exports){
 const TrustPolicy=require('./trust_strategy_v1.js');
 // BEFORE THE STARS — Royalist AI V9 OFFICIAL, command-value revision (2026-09-27).
@@ -2292,6 +2460,7 @@ const Logistics=require('./logistics_strategy_v1.js');
 const Civil=require('./civil_operations_v1.js');
 const Garrison=require('./garrison_strategy_v1.js');
 const ReserveFormation=require('./reserve_formation_strategy_v1.js');
+const VotePortfolio=require('./royalist_vote_portfolio_v1.js');
 const Operations=require('./operational_command_v1.js');
 const copy=x=>JSON.parse(JSON.stringify(x));
 const period=m=>m.calendar.year+'-'+String(m.calendar.month).padStart(2,'0');
@@ -2435,6 +2604,8 @@ function valuePlan(m,c,normal,allowRepair=true){
  Civil.applyStrategicBalance(m,c,'BRITISH',rows);
  rows=Garrison.applyPolicy(m,c,'BRITISH',rows);
  const firstVoteCampaign=applyFirstVoteCampaignWeights(m,c,rows);
+ const votePortfolio=VotePortfolio.mixRows(m,c,rows);
+ VotePortfolio.addCandidates(m,c,rows);
  for(const row of rows){const penalty=crossSwapPenalty(m,row);if(penalty){row.score-=penalty;row.cross_swap_penalty=penalty;}}
  const dedup=new Map();
  for(const row of TrustPolicy.applyRows(m,c,'BRITISH',rows).filter(row=>row.score>0&&available(m,row))){
@@ -2442,7 +2613,7 @@ function valuePlan(m,c,normal,allowRepair=true){
   if(!dedup.has(key)||dedup.get(key).score<row.score)dedup.set(key,row);
  }
  const evaluated=require('./operational_readiness_v1.js').applyRows(m,c,'BRITISH',[...dedup.values()]);ReserveFormation.preferEquivalentFlexibleFormation(m,c,'BRITISH',evaluated);const candidates=evaluated.filter(row=>row.score>0).sort((a,b)=>b.score-a.score);
- return {...normal,readiness_rejections:evaluated.filter(r=>r.operational_readiness?.admissible===false),candidates,choice:candidates[0]||null,firstVoteCampaign};
+ return {...normal,readiness_rejections:evaluated.filter(r=>r.operational_readiness?.admissible===false),candidates,choice:candidates[0]||null,firstVoteCampaign,votePortfolio};
 }
 function operationalCandidates(m,c){
  const crisis=Crisis.crisisCandidates(m,c,'BRITISH');
@@ -2459,7 +2630,7 @@ function operationalCandidates(m,c){
   return {...normal,profile,lifecycle:{breakthrough_crisis:crisis.assessment},candidates:secondary,choice:secondary[0]||null};
  }
  const normal=valuePlan(m,c,base.operationalCandidates(m,c));
- return {...normal,lifecycle:{...(normal.lifecycle||{}),breakthrough_crisis:crisis.assessment,first_vote_campaign:normal.firstVoteCampaign||null}};
+ return {...normal,lifecycle:{...(normal.lifecycle||{}),breakthrough_crisis:crisis.assessment,first_vote_campaign:normal.firstVoteCampaign||null,vote_portfolio:normal.votePortfolio||null}};
 }
 function chooseAction(m,c){
  if((m.factions?.BRITISH?.commands_remaining||0)<1)return null;
