@@ -533,7 +533,7 @@
       if(!army.supply_cut_since)army.supply_cut_since={year:next.calendar?.year??null,month:next.calendar?.month??null};
       const before=Number(army.morale)||0,loss=Math.max(0,perResource*resources.length);army.morale=clamp(before-loss,0,100);
       const event={type:'BATTLE_SUPPLY_CUT_MONTH',army_id:army.id,battle_id:army.battle_id,city_id:army.supply_city_id,resources_zeroed:[...resources],food_stock:0,material_stock:0,before_morale:before,after_morale:army.morale,morale_loss:before-army.morale,reason:army.supply_cut_reason};applied.push(event);appendAction(next,event);
-      if(army.morale<=0){const commander=next.commanders?.[army.commander_id];if(commander){commander.assigned_army_id=null;commander.status='INACTIVE_ROUTED';}appendAction(next,{type:'FIELD_ARMY_ROUTED',army_id:army.id,city_id:army.supply_city_id,reason:'BATTLE_SUPPLY_CUT_MORALE_ZERO'});delete next.field_armies[army.id];}
+      if(army.morale<=0){const commander=next.commanders?.[army.commander_id],battle=next.battles?.[army.battle_id];if(commander){commander.assigned_army_id=null;commander.status='INACTIVE_ROUTED';}appendAction(next,{type:'FIELD_ARMY_ROUTED',army_id:army.id,army_name:army.name,commander_name:commander?.name||null,faction:army.faction,battle_id:army.battle_id,battle_city_id:battle?.city_id||null,city_id:army.supply_city_id,last_morale:army.morale,reason:'BATTLE_SUPPLY_CUT_MORALE_ZERO'});delete next.field_armies[army.id];}
     }
     return{state:next,applied};
   }
