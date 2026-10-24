@@ -1,0 +1,76 @@
+'use strict';
+// Local, deterministic engine-level checks. The published Beta 7 data/AI is
+// never edited. Longer opponent-AI trials use beta8-comparison.cjs instead.
+const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path'),assert=require('node:assert/strict');
+const root=path.resolve(__dirname,'../runtime'),ctx={console};ctx.window=ctx;vm.createContext(ctx);
+function run(file){let source=fs.readFileSync(path.join(root,file),'utf8');if(file==='royalist_ai_official_browser_v3.js')source=source.replace('const api=load("AI_OFFICIAL_CURRENT/royalist_strategy_ai_v9_official.js");','window.__VotePortfolioTest=load("AI_OFFICIAL_CURRENT/royalist_vote_portfolio_v1.js");window.__LateVoteTest=load("AI_OFFICIAL_CURRENT/royalist_late_vote_strategy_v1.js");const api=load("AI_OFFICIAL_CURRENT/royalist_strategy_ai_v9_official.js");');vm.runInContext(source,ctx,{filename:file});}
+for(const name of ['phase2_data_v0_9_funds.js','political_phase_data_v0_1.js'])run(name);
+vm.runInContext(fs.readFileSync(path.join(root,'canonical_city_runtime_v0_74_retreat.js'),'utf8').split('\n')[0],ctx);
+run('commander_roster_runtime_v0_77_portraits.js');
+const modules={ArmyPhase2Engine:'army_phase2_engine_v0_74_retreat.js',BattleEngine:'battle_engine_v0_74_retreat.js',PoliticalPhaseEngine:'political_phase_engine_v0_77_portraits.js',CityCommandEngine:'city_command_engine_v0_18.js',NavalControlEngine:'canonical_naval_runtime_v0_67.js'};
+for(const [key,file] of Object.entries(modules))ctx[key]=require(path.join(root,file));
+for(const name of ['royalist_ai_turn_v1_15.js','patriot_sparring_ai_v1_15.js','royalist_ai_official_browser_v3.js','patriot_ai_official_browser_v2.js','continuation_battle_ai_v1.js','operation_campaign_ai_v1.js'])run(name);
+ctx.BTS_OPERATIONAL_AI_FLAGS={PATRIOT:true,BRITISH:true};
+const E=ctx.ArmyPhase2Engine,P=ctx.PoliticalPhaseEngine,PC=ctx.POLITICAL_PHASE_CONFIG;
+const clone=x=>JSON.parse(JSON.stringify(x));
+function sync(m,c){const occupied=E.logisticsTroopsByCity(m),usage=E.logisticsConsumptionTroopsByCity(m,ctx.PHASE2_CONFIG).totals||{};for(const [id,city] of Object.entries(c.cities)){city.politics.military_control=P.militaryControl(m,id,PC);city.garrison={...city.garrison,troops:Number(m.garrisons?.[id]?.manpower)||0};city.stationed_field_army_troops=occupied[id]||0;city.stationed_field_army_consumption_troops=usage[id]||0;}}
+function get(source){const x=source==='opening'?{military:P.ensureState(E.hydrateCanonicalExtensions(ctx.PHASE2_STATE_SEED,ctx.CITY_COMMAND_DATA,ctx.PHASE2_CONFIG),PC),cities:ctx.CITY_COMMAND_DATA}:JSON.parse(fs.readFileSync(source,'utf8'));
+ const m=clone(x.military),c=clone(x.cities);m.current_faction='BRITISH';m.player_faction='PATRIOT';m.factions.BRITISH.commands_remaining=3;for(const a of Object.values(m.field_armies))a.acted_this_month=false;sync(m,c);return{m,c};}
+function result(label,condition,detail){assert.ok(condition,label);console.log('PASS',label,JSON.stringify(detail||{}));}
+const opening=get('opening');
+result('Percy is in the published beta7 initial reserve',opening.m.political_phase.commander_reserves.BRITISH.some(c=>c.id==='CMD_BRI_PERCY'));
+result('Only Royalist initial military treasury increases to 5000',opening.m.factions.BRITISH.treasury===5000&&opening.m.factions.PATRIOT.treasury===3000);
+const openingDecision=ctx.RoyalistAiTurn.operationalCandidates(opening.m,opening.c);
+result('No political detachment during opening Worcester-Boston front',!(openingDecision.candidates||[]).some(x=>x.operation?.startsWith('PARALLEL_VOTE_')));
+const snapshot=path.resolve(__dirname,'fixtures/STATE_beta7_1776_04_seed101.json');
+const ordinary=get(snapshot),first=ctx.RoyalistAiTurn.operationalCandidates(ordinary.m,ordinary.c);
+result('Second vote goal persists independently of front goal',first.votePortfolio?.active&&first.votePortfolio.votes===1&&first.votePortfolio.goals.includes('SUSTAIN_ACTIVE_FRONT')&&first.votePortfolio.goals.includes('TWO_STATE_VOTES'),first.votePortfolio);
+const detached=first.candidates.filter(x=>x.operation==='PARALLEL_VOTE_RESERVE_FORM');
+result('Percy can form at safe, legal staging city even with other regulars present',detached.length===1&&detached[0].action.commander_id==='CMD_BRI_PERCY',detached.map(x=>x.action));
+result('No candidate fails operational-readiness screening',first.candidates.every(x=>x.operational_readiness?.admissible!==false));
+const noCash=get(snapshot);noCash.m.factions.BRITISH.treasury=500;
+const dry=ctx.RoyalistAiTurn.operationalCandidates(noCash.m,noCash.c);
+result('Do not initiate cash-consuming detachment or paid mission without adequate funds',!dry.candidates.some(x=>['PARALLEL_VOTE_RESERVE_FORM','PARALLEL_VOTE_OPINION'].includes(x.operation)));
+const complete=get(snapshot);for(const city of Object.values(complete.c.cities))if(city.parent_colony_id==='SC')city.politics.independence_support=5;
+const after=ctx.RoyalistAiTurn.operationalCandidates(complete.m,complete.c);
+result('Two seats end strategic vote-access campaign',P.voteTally(complete.c,PC).BRITISH>=2&&!after.votePortfolio?.active&&!after.candidates.some(x=>x.operation?.startsWith('PARALLEL_VOTE_')),P.voteTally(complete.c,PC));
+const safe=get(snapshot),toLeave=Object.values(safe.m.field_armies).filter(a=>a.faction==='BRITISH'&&a.location_city_id==='NC_02'&&a.manpower>0).map(a=>a.id);
+const riskyMove={score:108,action:{type:'MOVE',origin:'NC_02',target:'SC_04',ids:toLeave,strategic_reason:'CURRENT_FRONT_CONCENTRATION'}};
+ctx.__VotePortfolioTest.mixRows(safe.m,safe.c,[riskyMove]);
+result('Political priority cannot empty a friendly strategic staging city',toLeave.length>0&&riskyMove.score<=25&&riskyMove.strategy_portfolio?.safety==='REJECT_UNGUARDED_FRIENDLY_CITY_EVACUATION',riskyMove.strategy_portfolio);
+const guarded=get(snapshot);guarded.m.garrisons.NC_02.faction='BRITISH';guarded.m.garrisons.NC_02.manpower=200;sync(guarded.m,guarded.c);
+const safeMove={score:108,action:{type:'MOVE',origin:'NC_02',target:'SC_04',ids:toLeave,strategic_reason:'CURRENT_FRONT_CONCENTRATION'}};
+ctx.__VotePortfolioTest.mixRows(guarded.m,guarded.c,[safeMove]);
+result('Guarded staging city does not suppress legitimate movement',safeMove.score>=108&&!safeMove.strategy_portfolio?.safety);
+const beforeLate=ctx.__LateVoteTest.assess(ordinary.m,ordinary.c);
+result('Late-vote ladder remains inactive before the second vote',!beforeLate.active&&beforeLate.stage==='FIRST_TWO_VOTES',beforeLate);
+const postTwo=ctx.__LateVoteTest.assess(complete.m,complete.c);
+result('Royalist late-vote ladder activates after two votes',postTwo.votes>=2&&postTwo.votes<5&&postTwo.active&&postTwo.goal_votes>=4&&postTwo.goal_votes<=5,postTwo);
+console.log('AUDIT integrated post-two candidates',JSON.stringify({choice:{...after.choice?.action,score:after.choice?.score},top:after.candidates.slice(0,5).map(x=>({score:x.score,type:x.action.type,origin:x.action.origin,target:x.action.target||x.action.city})),lateVoteRows:after.candidates.filter(x=>x.late_vote_policy).slice(0,5).map(x=>({score:x.score,type:x.action.type,origin:x.action.origin,target:x.action.target||x.action.city,ids:x.action.ids,policy:x.late_vote_policy}))}));
+const targetCity=Object.values(complete.c.cities).find(x=>(x.parent_colony_id==='ME'?'MA':x.parent_colony_id)===postTwo.target);
+const affordableFoothold=get(snapshot);for(const city of Object.values(affordableFoothold.c.cities))if(['SC','VA'].includes(city.parent_colony_id))city.politics.independence_support=city.parent_colony_id==='SC'?5:55;
+const safeRow={score:37,action:{type:'MOVE',origin:'NC_02',target:'VA_02',route:'MOVE',ids:['ARM_BRI_DUNMORE'],strategic_reason:'CURRENT_FRONT_EXPANSION'}};
+const safePlan=ctx.__LateVoteTest.mixRows(affordableFoothold.m,affordableFoothold.c,[safeRow]);
+result('One safe reserve advance can compete with repetitive training',safePlan.target==='VA'&&safeRow.score>=85&&safeRow.late_vote_policy?.safe_foothold_advance===true,{target:safePlan.target,score:safeRow.score,policy:safeRow.late_vote_policy});
+const integratedSafe=ctx.RoyalistAiTurn.operationalCandidates(affordableFoothold.m,affordableFoothold.c);
+console.log('AUDIT safe advance in real candidate ranking',JSON.stringify({choice:{score:integratedSafe.choice?.score,action:integratedSafe.choice?.action},top:integratedSafe.candidates.slice(0,6).map(x=>({score:x.score,type:x.action.type,origin:x.action.origin,target:x.action.target||x.action.city,policy:x.late_vote_policy})),safeRows:integratedSafe.candidates.filter(x=>x.late_vote_policy?.safe_foothold_advance).length}));
+result('Integrated order ranking actually selects a safe political foothold',integratedSafe.choice?.action?.type==='MOVE'&&integratedSafe.choice?.action?.origin==='NC_02'&&integratedSafe.choice?.action?.target?.startsWith('VA_')&&integratedSafe.choice?.late_vote_policy?.safe_foothold_advance===true,{choice:integratedSafe.choice?.action,score:integratedSafe.choice?.score});
+const exposed=get(snapshot);for(const city of Object.values(exposed.c.cities))if(['SC','VA'].includes(city.parent_colony_id))city.politics.independence_support=city.parent_colony_id==='SC'?5:55;
+delete exposed.m.field_armies.ARM_RES_BRI_CORNWALLIS;
+const unsafeRow={score:37,action:{...safeRow.action,ids:['ARM_BRI_DUNMORE']}};
+ctx.__LateVoteTest.mixRows(exposed.m,exposed.c,[unsafeRow]);
+result('A foothold mission cannot strip an aligned city of its last defenders',unsafeRow.score<=37&&!unsafeRow.late_vote_policy?.safe_foothold_advance,{score:unsafeRow.score,policy:unsafeRow.late_vote_policy});
+const boosted={score:65,action:{type:'SECURITY',city:targetCity?.city_id}};
+const notTarget={score:65,action:{type:'SECURITY',city:'MA_01'}};
+ctx.__LateVoteTest.mixRows(complete.m,complete.c,[boosted,notTarget]);
+result('Selected state gets a bounded bonus without changing other-state orders',boosted.score>65&&boosted.score<=85&&notTarget.score===65,{target:postTwo.target,bonus:boosted.score-65});
+const threeVotes=get(snapshot);for(const city of Object.values(threeVotes.c.cities))if(['SC','VA'].includes(city.parent_colony_id))city.politics.independence_support=5;
+const postThree=ctx.__LateVoteTest.assess(threeVotes.m,threeVotes.c);
+result('Three votes preserve the interim four-vote milestone',postThree.votes===3&&postThree.goal_votes===4,postThree);
+const fourVotes=get(snapshot);for(const city of Object.values(fourVotes.c.cities))if(['SC','VA','GA'].includes(city.parent_colony_id))city.politics.independence_support=5;
+const postFour=ctx.__LateVoteTest.assess(fourVotes.m,fourVotes.c);
+result('Four votes switch to the fifth-vote milestone',postFour.votes===4&&postFour.goal_votes===5,postFour);
+const allWon=get(snapshot);for(const city of Object.values(allWon.c.cities))city.politics.independence_support=5;
+const fiveVotes=ctx.__LateVoteTest.assess(allWon.m,allWon.c);
+result('At five-plus votes, no forced campaign displaces front and supply',!fiveVotes.active&&fiveVotes.stage==='FIVE_VOTES_SECURED',fiveVotes);
+console.log('PASS SUMMARY: 10 beta8 mission checks + 9 late vote checks');
