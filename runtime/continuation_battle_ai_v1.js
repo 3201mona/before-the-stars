@@ -27,9 +27,9 @@
    const already=new Set([...(b.attacker_army_ids||[]),...(b.defender_army_ids||[])]),groups=new Map(),target=c.cities?.[b.city_id],period=`${m.calendar?.year||1775}-${String(m.calendar?.month||6).padStart(2,'0')}`;
    for(const army of Object.values(m.field_armies||{})){
      if(army.faction!==faction||already.has(army.id)||army.battle_id||army.acted_this_month||Number(army.manpower||0)<50||Number(army.morale||0)<10)continue;
-     const origin=army.location_city_id,originCity=c.cities?.[origin];if(!origin)continue;let mode=null,arrival=1;
-     if(landAdjacent(c,origin,b.city_id))mode='LAND';else if(N?.isPortOperational?.(originCity)&&originCity?.geography?.sea_zone_id&&target?.geography?.is_coastal&&target?.geography?.sea_zone_id){mode='SEA';arrival=N.seaRouteProfile(c,originCity.geography.sea_zone_id,target.geography.sea_zone_id,faction,'SEA_TRANSPORT',period).arrival_rate;}else continue;
-     const key=`${origin}|${mode}`;if(!groups.has(key))groups.set(key,{origin,mode,ids:[],arrival});groups.get(key).ids.push(army.id);
+     const origin=army.location_city_id,originCity=c.cities?.[origin],access=N?.coastalBattleLandingStatus?.(target);if(!origin)continue;let mode=null,arrival=1;
+     if(landAdjacent(c,origin,b.city_id))mode='LAND';else if(N?.isPortOperational?.(originCity)&&originCity?.geography?.sea_zone_id&&access?.available){mode='SEA';arrival=N.seaRouteProfile(c,originCity.geography.sea_zone_id,target.geography.sea_zone_id,faction,'SEA_TRANSPORT',period).arrival_rate;}else continue;
+     const key=`${origin}|${mode}`;if(!groups.has(key))groups.set(key,{origin,mode,ids:[],arrival,arrival_access_mode:mode==='SEA'?access.mode:null});groups.get(key).ids.push(army.id);
    }
    // Each candidate is one legal command. Ordinary commanders travel separately;
    // a joint group must include its unacted chief or theater commander.
