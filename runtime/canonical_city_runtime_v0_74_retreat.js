@@ -385,14 +385,20 @@ window.CITY_COMMAND_DATA={"schema_version":"city-command-state/1.28.0","approval
     const adjacent=edges.some(e=>!String(e.type||'').startsWith('water_')&&e.counts_as_land_adjacency!==false&&((e.a===originId&&e.b===destinationId)||(e.b===originId&&e.a===destinationId)));
     if(adjacent)return{mode:'LAND',rate:1,profile:null};
     const origin=state.cities[originId],target=state.cities[destinationId],m=window.__phase2UI.getState();
+    const access=window.NavalControlEngine?.coastalBattleLandingStatus?.(target);
+    if(!window.NavalControlEngine?.isPortOperational?.(origin)||!access?.available)throw new Error('REINFORCEMENT_SEA_ROUTE_UNAVAILABLE');
     const profile=window.NavalControlEngine?.seaRouteProfile?.(state,origin?.geography?.sea_zone_id,target?.geography?.sea_zone_id,currentFaction(),'SEA_TRANSPORT',`${m.calendar.year}-${String(m.calendar.month).padStart(2,'0')}`);
     if(!profile)throw new Error('REINFORCEMENT_SEA_ROUTE_UNAVAILABLE');
-    return{mode:'SEA',rate:profile.arrival_rate,profile};
+    return{mode:'SEA',rate:profile.arrival_rate,profile,access,enemy_blockade:Boolean(target?.naval?.blockaded_by&&target.naval.blockaded_by!==currentFaction())};
   }
   function reinforcementRouteMarkup(route){
     if(route.mode==='LAND')return'<strong>陸路援軍</strong>：直接隣接・到着率100％（制海権の影響なし）';
     const rate=Math.round(route.rate*100),colour=rate>=85?'#65b7ff':rate<70?'#ff7076':'#e9c875';
-    return`<strong>海路援軍</strong>：制海権の影響を受けます。<span style="color:${colour};font-weight:800">到着率 ${rate}％</span> ${route.profile?.worst_stage?navalStageMarkup(route.profile.worst_stage):''}`;
+    const reason={BLOCKADED:'港湾封鎖中',MAJOR_CITY_DAMAGE:'都市被害「大」以上',NOT_A_PORT:'上陸専用地点'}[route.access?.reason]||'港湾機能停止';
+    const forced=route.access?.mode==='COASTAL_LANDING';
+    const approach=forced?`<strong>海路援軍・沿岸への強行上陸</strong>（${reason}：港湾施設は使用しません）`:'<strong>海路援軍・港湾到着</strong>';
+    const supply=route.enemy_blockade?' <span class="negative">敵の港湾封鎖下では到着後の海上補給も遮断されます。</span>':'';
+    return`${approach}：制海権の影響を受けます。<span style="color:${colour};font-weight:800">到着率 ${rate}％</span> ${route.profile?.worst_stage?navalStageMarkup(route.profile.worst_stage):''}${supply}`;
   }
   function chooseTarget(id){
     if(!activeCommand||!commandSourceId||!candidateIds.has(id)){message('その都市は現在の目的地候補ではありません','warn');return;}

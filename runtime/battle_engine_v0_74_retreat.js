@@ -108,13 +108,15 @@
     if(Object.values(state.battles||{}).some(b=>b.city_id===args.city_id&&['awaiting_tactic','active','awaiting_continuation'].includes(b.status)))fail('BATTLE_CITY_ALREADY_ENGAGED');
     for(const id of attackerIds){const army=state.field_armies?.[id];if(!army)fail('ARMY_NOT_FOUND');if(army.location_city_id!==args.origin_city_id)fail('ATTACKER_ORIGIN_MISMATCH');if(army.battle_id)fail('ARMY_IN_OTHER_BATTLE');}
     const route=args.route_type==='ATTACK'?'LAND_ATTACK':args.route_type||'LAND_ATTACK',edges=cityState.topology?.edges||[];
+    let landingAccess=null;
     if(route==='LAND_ATTACK'){
       const adjacent=edges.some(e=>!String(e.type||'').startsWith('water_')&&e.counts_as_land_adjacency!==false&&((e.a===args.origin_city_id&&e.b===args.city_id)||(e.b===args.origin_city_id&&e.a===args.city_id)));
       if(!adjacent)fail('BATTLE_LAND_ROUTE_INVALID');
     }else if(route==='LANDING_ATTACK'){
       const naval=(typeof globalThis!=='undefined'?globalThis.NavalControlEngine:null);
       if(!origin.geography?.is_port||!origin.geography?.sea_zone_id||!naval?.isPortOperational?.(origin))fail('BATTLE_LANDING_ORIGIN_PORT_INVALID');
-      if(!city.geography?.is_coastal||!city.geography?.sea_zone_id)fail('BATTLE_LANDING_TARGET_INVALID');
+      landingAccess=naval?.coastalBattleLandingStatus?.(city);
+      if(!landingAccess?.available)fail('BATTLE_LANDING_TARGET_INVALID');
     }else fail('BATTLE_ROUTE_INVALID');
     const defenderFaction=opposite(first.faction);
     const defenderIds=Object.values(state.field_armies||{}).filter(a=>a.location_city_id===args.city_id&&a.faction===defenderFaction&&a.manpower>0&&!a.battle_id).map(a=>a.id);
@@ -137,7 +139,7 @@
     const attacker=forceSummary(state,attackerIds,null,state.field_armies[attackerLeader].commander_id,config,city.politics?.political_importance||1,true);
     const defender=forceSummary(state,defenderIds,battleGarrison,defenderLeader?state.field_armies[defenderLeader].commander_id:null,config,city.politics?.political_importance||1,false,unopposed);
     const id=nextBattleId(state),next=copy(state);
-    next.battles[id]={id,city_id:args.city_id,origin_city_id:args.origin_city_id,status:'awaiting_tactic',started_by_faction:first.faction,attacker_faction:first.faction,defender_faction:defenderFaction,attacker_army_ids:attackerIds,defender_army_ids:defenderIds,attacker_leader_army_id:attackerLeader,defender_leader_army_id:defenderLeader,garrison_id:activeGarrison?.id||null,garrison_only_defense:garrisonOnlyDefense,unopposed,origin_control_verified:originControl===first.faction?first.faction:null,departure_committed:true,garrison_morale:activeGarrison?garrisonInitialMorale:null,battlefield_commander:{[first.faction]:attacker.commander_id,[defenderFaction]:defender.commander_id},result_band:null,tactic:{[first.faction]:null,[defenderFaction]:garrisonOnlyDefense?'garrison_defense':chooseEnemyTactic(attacker,defender,config)},started_month:`${state.calendar.year}-${String(state.calendar.month).padStart(2,'0')}`,continued_months:0,calculation_status:'READY',history:[],route_type:route};
+    next.battles[id]={id,city_id:args.city_id,origin_city_id:args.origin_city_id,status:'awaiting_tactic',started_by_faction:first.faction,attacker_faction:first.faction,defender_faction:defenderFaction,attacker_army_ids:attackerIds,defender_army_ids:defenderIds,attacker_leader_army_id:attackerLeader,defender_leader_army_id:defenderLeader,garrison_id:activeGarrison?.id||null,garrison_only_defense:garrisonOnlyDefense,unopposed,origin_control_verified:originControl===first.faction?first.faction:null,departure_committed:true,garrison_morale:activeGarrison?garrisonInitialMorale:null,battlefield_commander:{[first.faction]:attacker.commander_id,[defenderFaction]:defender.commander_id},result_band:null,tactic:{[first.faction]:null,[defenderFaction]:garrisonOnlyDefense?'garrison_defense':chooseEnemyTactic(attacker,defender,config)},started_month:`${state.calendar.year}-${String(state.calendar.month).padStart(2,'0')}`,continued_months:0,calculation_status:'READY',history:[],route_type:route,landing_access:landingAccess?{mode:landingAccess.mode,reason:landingAccess.reason}:null};
     for(const armyId of attackerIds)if(next.field_armies[armyId]){next.field_armies[armyId].battle_id=id;next.field_armies[armyId].supply_city_id=args.origin_city_id;}
     for(const armyId of defenderIds)if(next.field_armies[armyId]){next.field_armies[armyId].battle_id=id;next.field_armies[armyId].supply_city_id=args.city_id;}
     return{state:next,battle:copy(next.battles[id]),attacker,defender};
@@ -287,9 +289,10 @@
     const first=state.field_armies?.[ids[0]];if(!first)fail('ARMY_NOT_FOUND');const faction=first.faction,originCityId=first.location_city_id;
     if(![battle.attacker_faction,battle.defender_faction].includes(faction))fail('REINFORCEMENT_FACTION_INVALID');
     const edges=cityState.topology?.edges||[],landAdjacent=(a,b)=>edges.some(e=>!String(e.type||'').startsWith('water_')&&e.counts_as_land_adjacency!==false&&((e.a===a&&e.b===b)||(e.a===b&&e.b===a))),origin=cityState.cities?.[originCityId],target=cityState.cities?.[battle.city_id],naval=(typeof globalThis!=='undefined'?globalThis.NavalControlEngine:null),periodKey=`${state.calendar?.year||1775}-${String(state.calendar?.month||6).padStart(2,'0')}`;
-    let routeMode='LAND',routeProfile=null;
+    let routeMode='LAND',routeProfile=null,landingAccess=null;
     if(!landAdjacent(originCityId,battle.city_id)){
-      if(!naval?.seaRouteProfile||!naval?.isPortOperational?.(origin)||!target?.geography?.is_coastal||!origin?.geography?.sea_zone_id||!target.geography?.sea_zone_id)fail('REINFORCEMENT_NOT_ADJACENT');
+      landingAccess=naval?.coastalBattleLandingStatus?.(target);
+      if(!naval?.seaRouteProfile||!naval?.isPortOperational?.(origin)||!landingAccess?.available||!origin?.geography?.sea_zone_id)fail('REINFORCEMENT_NOT_ADJACENT');
       routeMode='SEA';routeProfile=naval.seaRouteProfile(cityState,origin.geography.sea_zone_id,target.geography.sea_zone_id,faction,'SEA_TRANSPORT',periodKey);
     }
     for(const id of ids){const army=state.field_armies?.[id];if(!army)fail('ARMY_NOT_FOUND');if(army.faction!==faction)fail('REINFORCEMENT_FACTION_INVALID');if(army.location_city_id!==originCityId)fail('REINFORCEMENT_ORIGIN_MISMATCH');if(army.acted_this_month)fail('ARMY_ALREADY_ACTED');if(army.battle_id)fail('ARMY_IN_OTHER_BATTLE');if(Number(army.manpower||0)<50||Number(army.morale||0)<10)fail('REINFORCEMENT_NOT_COMBAT_CAPABLE');}
@@ -300,12 +303,16 @@
     const live=next.battles[battleId],added=[],transit=[];live.attacker_reinforcement_ids ||= [];live.defender_reinforcement_ids ||= [];live.reinforcement_origins ||= {};
     for(const id of ids){const army=next.field_armies[id],role=army.faction===live.attacker_faction?'attacker':'defender',originId=army.location_city_id,key=role==='attacker'?'attacker_army_ids':'defender_army_ids',rkey=role==='attacker'?'attacker_reinforcement_ids':'defender_reinforcement_ids',before=Number(army.manpower||0);let after=before;
       if(routeMode==='SEA'){after=before>0&&routeProfile.arrival_rate>0?Math.max(1,Math.floor(before*routeProfile.arrival_rate)):0;army.manpower=after;}
-      live.reinforcement_origins[id]={army_id:id,commander_id:army.commander_id||null,origin_city_id:originId,origin_control_verified:originVerified,battle_role:role,joined_turn:next.turn??null,joined_month:next.calendar?.month??null,route_mode:routeMode,arrival_rate:routeMode==='SEA'?routeProfile.arrival_rate:1,worst_zone_id:routeProfile?.worst_zone_id||null};
+      live.reinforcement_origins[id]={army_id:id,commander_id:army.commander_id||null,origin_city_id:originId,origin_control_verified:originVerified,battle_role:role,joined_turn:next.turn??null,joined_month:next.calendar?.month??null,route_mode:routeMode,arrival_access_mode:landingAccess?.mode||null,arrival_access_reason:landingAccess?.reason||null,arrival_rate:routeMode==='SEA'?routeProfile.arrival_rate:1,worst_zone_id:routeProfile?.worst_zone_id||null};
       if(!live[rkey].includes(id))live[rkey].push(id);if(!live[key].includes(id))live[key].push(id);
       army.acted_this_month=true;army.battle_id=battleId;army.supply_city_id=originId;army.reinforcement_role=role;army.reinforcement_route_mode=routeMode;if(routeMode!=='SEA')delete army.sea_supply_blockaded;added.push(id);transit.push({army_id:id,before,after,lost:before-after,route_mode:routeMode});
     }
     const aIds=live.attacker_army_ids.filter(id=>next.field_armies?.[id]),dIds=live.defender_army_ids.filter(id=>next.field_armies?.[id]),aLead=selectBattlefieldLeader(next,aIds),dLead=selectBattlefieldLeader(next,dIds);live.attacker_leader_army_id=aLead;live.defender_leader_army_id=dLead;live.battlefield_commander={[live.attacker_faction]:aLead?next.field_armies[aLead]?.commander_id:null,[live.defender_faction]:dLead?next.field_armies[dLead]?.commander_id:null};
-    armyEngine?.appendAction?.(next,{type:'BATTLE_REINFORCEMENT',battle_id:battleId,army_ids:added,origin_city_id:originCityId,command_cost:1,route_mode:routeMode,arrival_rate:routeMode==='SEA'?routeProfile.arrival_rate:1,transit});return{state:next,battle:copy(live),added_army_ids:added,command_cost:1,route_mode:routeMode,arrival_rate:routeMode==='SEA'?routeProfile.arrival_rate:1,transit};
+    armyEngine?.appendAction?.(next,{type:'BATTLE_REINFORCEMENT',battle_id:battleId,army_ids:added,origin_city_id:originCityId,command_cost:1,route_mode:routeMode,arrival_access_mode:landingAccess?.mode||null,arrival_access_reason:landingAccess?.reason||null,arrival_rate:routeMode==='SEA'?routeProfile.arrival_rate:1,transit});
+    // Resolve a hostile blockade immediately, including during AI turns. Do
+    // not wait for the next UI refresh to mark an infiltrating force unsupplied.
+    if(routeMode==='SEA'&&armyEngine?.syncBattleSeaSupplyBlockades)next=armyEngine.syncBattleSeaSupplyBlockades(next,cityState).state;
+    return{state:next,battle:copy(next.battles[battleId]),added_army_ids:added,command_cost:1,route_mode:routeMode,arrival_access_mode:landingAccess?.mode||null,arrival_access_reason:landingAccess?.reason||null,arrival_rate:routeMode==='SEA'?routeProfile.arrival_rate:1,transit};
   }
   function reinforcementReturnPlan(state,cityState,battle,armyId,config){
     const army=state.field_armies?.[armyId],meta=battle.reinforcement_origins?.[armyId];if(!army||!meta)return null;const origin=meta.origin_city_id,status=retreatDestinationStatus(state,origin,army.faction,[armyId],battle.id),edges=cityState.topology?.edges||[],adj=edges.some(e=>!String(e.type||'').startsWith('water_')&&e.counts_as_land_adjacency!==false&&((e.a===battle.city_id&&e.b===origin)||(e.a===origin&&e.b===battle.city_id))),naval=(typeof globalThis!=='undefined'?globalThis.NavalControlEngine:null),periodKey=`${state.calendar?.year||1775}-${String(state.calendar?.month||6).padStart(2,'0')}`;
