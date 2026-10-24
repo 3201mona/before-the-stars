@@ -36,6 +36,10 @@ body.support-on #game-map path.unit-click.selected{stroke:#ffe183!important;stro
 .strategy-battle-flag .theater-star{fill:#e5ebee;stroke:#31383d;stroke-width:1.2}
 .strategy-battle-total{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-size:13px}
 .strategy-battle-card.opening{animation:battle-card-open 160ms 160ms both}
+.strategy-battle-route-summary{border-top:1px solid #5d7181;padding-top:5px;margin-top:6px;font-size:11px;line-height:1.35;color:#e6dcbf}
+.strategy-battle-route-summary>strong{display:block;color:#f4d683;margin-bottom:3px}
+.strategy-battle-route-entry{padding:3px 1px;border-top:1px dashed #40515a;overflow-wrap:anywhere}
+.strategy-battle-route-entry small{display:block;color:#cbdce2;margin-top:2px;font-size:10px}
 .strategy-battle-connector.opening path{animation:battle-line-open 160ms both}
 @keyframes battle-card-open{from{opacity:0;transform:scale(.86)}to{opacity:1;transform:scale(1)}}
 @keyframes battle-line-open{from{stroke-dashoffset:var(--line-length)}to{stroke-dashoffset:0}}

@@ -61,33 +61,57 @@
     routeRecords.forEach((route,index)=>{
       const a=anchors.get(route.origin),b=anchors.get(route.target),geo=M.routeGeometry(a,b,route,index,undefined,scale);if(!geo)return;
       geometryRecords.push({...route,geometry:geo});
-      const g=svg('g',{'data-route-key':route.key,'data-route-battle':route.battle_id,opacity:selected?(route.battle_id===selected?1:.13):.65});
       const main=route.kind==='MAIN',dash=main?null:'7 5';
+      const g=svg('g',{'data-route-key':route.key,'data-route-battle':route.battle_id,opacity:selected?(route.battle_id===selected?1:.13):.65,'pointer-events':selected&&route.battle_id!==selected?'none':'visibleStroke',tabindex:selected&&route.battle_id!==selected?-1:0,role:'button','aria-label':`${cityName(data.c,route.origin)}から${cityName(data.c,route.target)}へ${main?'主攻':'援軍'}`});
       for(const[color,width]of [['#07111b',main?8:7],['#fff9e9',main?6:5],[M.COLORS[route.faction],main?3:2]]){
-        const attrs={d:geo.d,fill:'none',stroke:color,'stroke-width':width};if(dash)attrs['stroke-dasharray']=dash;g.appendChild(svg('path',attrs));
+        const attrs={d:geo.d,fill:'none',stroke:color,'stroke-width':width,'pointer-events':'stroke'};if(dash)attrs['stroke-dasharray']=dash;g.appendChild(svg('path',attrs));
       }
       for(const[color,width]of [['#07111b',5],['#fff9e9',3],[M.COLORS[route.faction],0]])g.appendChild(svg('path',{d:geo.headD,fill:M.COLORS[route.faction],stroke:color,'stroke-width':width}));
-      title(g,`${cityName(data.c,route.origin)} → ${cityName(data.c,route.target)}：${main?'主攻':'援軍'} ${route.army_ids.length}部隊`);routesLayer.appendChild(g);
+      const unitNames=route.army_ids.map(id=>{const a=data.s.field_armies?.[id],commander=data.s.commanders?.[a?.commander_id];return a?`${a.name}／${commander?.name||'指揮官不明'}${a.supply_cut||a.sea_supply_blockaded?'（補給遮断中）':''}`:null;}).filter(Boolean);
+      const sourceControl=data.c.cities?.[route.origin]?.politics?.military_control;
+      const sourceLost=sourceControl&&(sourceControl==='PATRIOT'||sourceControl==='BRITISH')&&sourceControl!==route.faction;
+      title(g,`${cityName(data.c,route.origin)} → ${cityName(data.c,route.target)}：${main?'主攻':'援軍'} ${route.army_ids.length}部隊（${route.mode==='SEA'?'海路':'陸路'}）${sourceLost?'／出発都市は現在敵支配・補給元喪失':''}\n${unitNames.join('\n')}`);routesLayer.appendChild(g);
+      g.addEventListener('click',event=>{event.stopPropagation();openWindow(route.battle_id);});
+      g.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openWindow(route.battle_id);}});
     });
   }
-  function flag(a,s){
+  function flag(a,s,cityState){
     const c=s.commanders?.[a.commander_id],role=M.roleOrder(c),g=svg('svg',{class:`strategy-battle-flag ${a.faction==='PATRIOT'?'patriot':'british'} ${role===0?'commander-in-chief':role===1?'theater-commander':''}`,viewBox:'-12 -17 38 48',width:'22',height:'34','aria-label':`${c?.name||a.name}：${Number(a.manpower).toLocaleString()}名`});
     g.appendChild(svg('line',{class:'flag-pole',x1:0,y1:-3,x2:0,y2:27}));g.appendChild(svg('path',{class:'flag',d:'M1,-1 L21,3 L17,17 L1,13 Z'}));
     const mark=svg('text',{class:'flag-mark',x:10,y:11});mark.textContent=a.faction==='PATRIOT'?'A':'B';g.appendChild(mark);
     if(role<2)g.appendChild(svg('path',{class:role===0?'chief-star':'theater-star',d:M.STAR}));
-    title(g,`${c?.name||a.name}：${Number(a.manpower).toLocaleString()}名`);return g;
+    const battle=s.battles?.[a.battle_id],meta=battle?.reinforcement_origins?.[a.id],origin=cityState?.cities?.[meta?.origin_city_id]?.city_name;
+    const source=origin?`／${origin}から${meta.route_mode==='SEA'?'海路':'陸路'}援軍`:'';
+    const cut=a.supply_cut||a.sea_supply_blockaded?'／補給線遮断中':'';
+    const description=`${c?.name||a.name}：${Number(a.manpower).toLocaleString()}名${source}${cut}`;
+    g.setAttribute('aria-label',description);title(g,description);return g;
   }
   function content(data,b){
     const forces=M.FACTIONS.map(f=>M.forces(data.s,b,f));
-    const key=JSON.stringify([b.id,M.battleMonth(data.s,b),forces.map(f=>[f.manpower,f.garrison,f.armies.map(a=>[a.id,a.manpower,data.s.commanders?.[a.commander_id]?.role])])]);
+    const routes=M.collectRoutes(data.s).filter(route=>route.battle_id===b.id);
+    const routeSignature=routes.map(route=>[route.key,route.army_ids.map(id=>{const a=data.s.field_armies?.[id];return[id,a?.supply_cut,a?.sea_supply_blockaded,a?.commander_id];}),data.c.cities?.[route.origin]?.politics?.military_control]);
+    const key=JSON.stringify([b.id,M.battleMonth(data.s,b),forces.map(f=>[f.manpower,f.garrison,f.armies.map(a=>[a.id,a.manpower,data.s.commanders?.[a.commander_id]?.role])]),routeSignature]);
     if(key===lastContent)return;lastContent=key;card.replaceChildren();
     const header=el('header'),h=el('h2',null,`${cityName(data.c,b.city_id)}会戦`),close=el('button','strategy-battle-close','×');h.id='strategy-battle-title';card.setAttribute('aria-labelledby',h.id);close.type='button';close.setAttribute('aria-label','会戦情報を閉じる');close.addEventListener('click',closeWindow);header.append(h,close);
     const month=el('div','strategy-battle-month',`継続戦闘 ${M.battleMonth(data.s,b)}ヶ月目`),host=el('div','strategy-battle-forces');
     for(const f of forces){
       const row=el('div','strategy-battle-force'),square=el('span',`strategy-faction-square ${f.faction==='PATRIOT'?'patriot':'british'}`),flags=el('div','strategy-battle-flags'),total=el('strong','strategy-battle-total',`${f.manpower.toLocaleString()}名`);
-      row.dataset.faction=f.faction;square.setAttribute('aria-label',f.faction==='PATRIOT'?'独立派':'王党派');flags.append(...f.armies.map(a=>flag(a,data.s)));total.title=f.garrison?`守備隊 ${f.garrison.toLocaleString()}名を含む`:'参加部隊の合計兵数';row.append(square,flags,total);host.appendChild(row);
+      row.dataset.faction=f.faction;square.setAttribute('aria-label',f.faction==='PATRIOT'?'独立派':'王党派');flags.append(...f.armies.map(a=>flag(a,data.s,data.c)));total.title=f.garrison?`守備隊 ${f.garrison.toLocaleString()}名を含む`:'参加部隊の合計兵数';row.append(square,flags,total);host.appendChild(row);
     }
     card.append(header,month,host);
+    if(routes.length){
+      const routeBox=el('section','strategy-battle-route-summary'),heading=el('strong',null,'進軍・援軍の出発地');
+      routeBox.appendChild(heading);
+      for(const route of routes){
+        const origin=cityName(data.c,route.origin),dest=cityName(data.c,route.target);
+        const sourceControl=data.c.cities?.[route.origin]?.politics?.military_control;
+        const lost=(sourceControl==='PATRIOT'||sourceControl==='BRITISH')&&sourceControl!==route.faction;
+        const line=el('div','strategy-battle-route-entry',`${origin} → ${dest}（${route.mode==='SEA'?'海路':'陸路'}${route.kind==='MAIN'?'主攻':'援軍'}）${lost?'／出発地陥落':''}`);
+        const names=route.army_ids.map(id=>{const a=data.s.field_armies?.[id],commander=data.s.commanders?.[a?.commander_id];return a?`${a.name}・${commander?.name||'指揮官不明'}${a.supply_cut||a.sea_supply_blockaded?'［補給遮断］':''}`:null;}).filter(Boolean);
+        const detail=el('small',null,names.join('／'));line.appendChild(detail);routeBox.appendChild(line);
+      }
+      card.appendChild(routeBox);
+    }
   }
   function viewport(){const r=scroll.getBoundingClientRect();return{x:Math.max(0,r.left),y:Math.max(0,r.top),width:Math.max(0,Math.min(r.left+scroll.clientWidth,window.innerWidth)-Math.max(0,r.left)),height:Math.max(0,Math.min(r.top+scroll.clientHeight,window.innerHeight)-Math.max(0,r.top))};}
   function screenPoint(p,area){const r=map.getBoundingClientRect();return{x:r.left+p.x*r.width/1448-area.x,y:r.top+p.y*r.height/1086-area.y};}

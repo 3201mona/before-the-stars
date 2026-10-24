@@ -37,8 +37,13 @@
     const faction=state?.current_faction||'PATRIOT';
     return{faction,title:'指令フェーズ',kindLabel:`${state?.calendar?.year||''}年${state?.calendar?.month||''}月`,message:'総司令官、今月のご命令を。',details:[]};
   }
+  function resumeCommandFlow(){
+    const resume=()=>window.__battleUI?.resumePendingBattle?.();
+    if(window.__cityCommandUI?.processMonthlyBlockadeMaintenance)return window.__cityCommandUI.processMonthlyBlockadeMaintenance(resume);
+    resume();return false;
+  }
   function runMonthOpeningSequence(notifications){
-    const resumeBattle=()=>window.__battleUI?.resumePendingBattle?.();
+    const resumeBattle=resumeCommandFlow;
     const enterCommandPhase=()=>{
       const state=window.__phase2UI?.getState?.();
       if(state&&window.__phase2UI?.setState){const next=JSON.parse(JSON.stringify(state));next.runtime_flow_phase='COMMAND';window.__phase2UI.setState(next);}
@@ -53,5 +58,5 @@
     if((notifications||[]).filter(Boolean).length)show(notifications,afterNotifications);else window.setTimeout(afterNotifications,0);
   }
   button.addEventListener('click',confirm);
-  window.__eventNotificationUI={show,cancel,runMonthOpeningSequence,playMonthBellOnce,resetMonthBell,confirm,finishTyping,isOpen:()=>!modal.hidden||Boolean(window.__majorEventUI?.isOpen?.()),isMajorEventActive:()=>Boolean(items[index]?.majorEvent&&window.__majorEventUI?.isOpen?.()),getCurrent:()=>items[index]||null,pendingCount:()=>batches.reduce((sum,batch)=>sum+batch.items.length,0)+Math.max(0,items.length-index)};
+  window.__eventNotificationUI={show,cancel,runMonthOpeningSequence,resumeCommandFlow,playMonthBellOnce,resetMonthBell,confirm,finishTyping,isOpen:()=>!modal.hidden||Boolean(window.__majorEventUI?.isOpen?.()),isMajorEventActive:()=>Boolean(items[index]?.majorEvent&&window.__majorEventUI?.isOpen?.()),getCurrent:()=>items[index]||null,pendingCount:()=>batches.reduce((sum,batch)=>sum+batch.items.length,0)+Math.max(0,items.length-index)};
 })();

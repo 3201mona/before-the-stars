@@ -1,9 +1,9 @@
 {
-  "public_version": "1.0.0-beta.8",
-  "label": "Ver.1.0 β8",
+  "public_version": "1.0.0-beta.9",
+  "label": "Ver.1.0 β9",
   "release_status": "published",
-  "release_date": "2026-10-23",
+  "release_date": "2026-10-24",
   "entry": "index.html",
   "game": "runtime/game.html",
-  "patch_id": "20261023-royalist-parallel-votes-budget5000"
+  "patch_id": "20261024-blockade-maintenance-reinforcement-map"
 }
