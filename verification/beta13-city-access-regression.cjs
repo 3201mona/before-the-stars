@@ -98,8 +98,8 @@ armyLocationLink.dataset.cityId='UNKNOWN';armyLocationLink.click();
 assert.equal(armyModalClosed,1,'都市IDが無効なら遷移しない');
 assert.match(armySource,/\$\('army-location'\)\.dataset\.cityId=city\.city_id/,'表示中の所在都市IDをリンクに設定');
 assert.match(armySource,/window\.__cityCommandUI\?\.selectCity\?\.\(cityId\)/,'部隊所在から都市情報を選択');
-assert.match(html,/canonical_city_runtime_v0_74_retreat\.js\?v=20261025-beta13-city-access-dev/,'都市情報スクリプトのキャッシュ更新');
-assert.match(html,/army_phase2_ui_v0_77_portraits\.js\?v=20261025-beta13-city-access-dev/,'部隊UIスクリプトのキャッシュ更新');
+assert.match(html,/canonical_city_runtime_v0_74_retreat\.js\?v=20261025-beta14-flag-layout/,'都市情報スクリプトのキャッシュ更新');
+assert.match(html,/army_phase2_ui_v0_77_portraits\.js\?v=20261025-beta14-flag-layout/,'部隊UIスクリプトのキャッシュ更新');
 assert.match(html,/strategy_map_zoom_v1\.js/,'既存の地図ズームを保つ');
 
 // 現物SVGのプロビデンス都市形状と、野戦軍旗の配置・透明ヒットボックスを比較。
