@@ -1,9 +1,9 @@
 {
-  "public_version": "1.0.0-beta.12",
-  "label": "Ver.1.0 β12",
+  "public_version": "1.0.0-beta.13",
+  "label": "Ver.1.0 β13",
   "release_status": "published",
   "release_date": "2026-10-25",
   "entry": "index.html",
   "game": "runtime/game.html",
-  "patch_id": "20261025-patriot-attack-control-fix"
+  "patch_id": "20261025-city-access"
 }
