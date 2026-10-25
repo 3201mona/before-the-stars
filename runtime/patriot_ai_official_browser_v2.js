@@ -2503,7 +2503,7 @@ function available(m,row){const a=row.action||{},ids=[...(a.ids||[]),a.army_id].
   // It cannot defend a second attack there; prepareBattle requires an unengaged defender.
   const defenders=Object.values(m.field_armies||{}).some(unit=>unit.location_city_id===a.target&&unit.faction==='BRITISH'&&unit.manpower>0&&!unit.battle_id);
   const garrison=m.garrisons?.[a.target],guard=garrison?.faction==='BRITISH'&&garrison.manpower>0;
-  if(!defenders&&!guard&&control(m,a.target)!=='BRITISH')return false; // Verified deployment-controlled, empty cities are valid unopposed targets.
+  if(!defenders&&!guard&&P.militaryControl(m,a.target,political)!=='BRITISH')return false; // Deployment-controlled, empty British cities remain valid unopposed targets.
 }
 return ids.every(id=>{const army=m.field_armies?.[id],battle=army?.battle_id&&m.battles?.[army.battle_id];return !battle||!['awaiting_tactic','active','awaiting_continuation'].includes(battle.status);});}
 function availablePlan(m,plan,c){Operations.applyRows(m,c,'PATRIOT',plan.candidates||[]);const evaluated=require('./operational_readiness_v1.js').applyRows(m,c,'PATRIOT',TrustPolicy.applyRows(m,c,'PATRIOT',plan.candidates||[]).filter(row=>row.score>0&&available(m,row)));ReserveFormation.preferEquivalentFlexibleFormation(m,c,'PATRIOT',evaluated);const candidates=evaluated.filter(row=>row.score>0).sort((a,b)=>b.score-a.score);return{...plan,readiness_rejections:evaluated.filter(r=>r.operational_readiness?.admissible===false),candidates,choice:candidates[0]||null,trust:TrustPolicy.forecast(m,c,'PATRIOT')};}
