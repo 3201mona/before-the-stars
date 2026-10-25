@@ -1,5 +1,11 @@
 # BEFORE THE STARS
 
+## ▶ [ゲームを遊ぶ](https://3201mona.github.io/before-the-stars/runtime/game.html)
+
+上のリンクから、ブラウザでそのまま遊べます。ダウンロードやGitHubへのログインは不要です。
+
+[公開サイト](https://3201mona.github.io/before-the-stars/) ｜ [遊び方・クレジット](https://3201mona.github.io/before-the-stars/about.html)
+
 **Ver.1.0 β13 / 2026-10-25公開**
 
 β13では、都市情報の「都市選択」メニュー、州内の都市一覧、部隊詳細の所在地から都市情報を開けるようにしました。軍旗が密集したプロビデンスなども、地図を直接クリックせず選択できます。地図の最大拡大率は150％を維持し、地図形状・旗配置・戦闘計算は変更していません。直接の地図クリック領域の重なりは残ります。検証範囲は [BETA13_CITY_ACCESS_REPORT.md](BETA13_CITY_ACCESS_REPORT.md) を参照してください。
@@ -18,11 +24,11 @@
 
 ## プレイ
 
-公開URLの `index.html` が入口です。ZIPで入手した場合は全体を展開し、`index.html` を開いてください。フォルダ構成を保ってください。
+ブラウザで遊ぶ場合は、[ゲームを遊ぶ](https://3201mona.github.io/before-the-stars/runtime/game.html)を開いてください。ZIPで入手した場合は全体を展開し、`index.html` を開いてください。フォルダ構成を保ってください。
 
 PC・タブレットの横向き表示をおすすめします。スマートフォンやタッチ操作の機種別検証は完了していません。
 
-遊び方・作品情報・利用条件は [about.html](about.html) にあります。
+遊び方・作品情報・利用条件は [about.html](https://3201mona.github.io/before-the-stars/about.html) にあります。
 公開済み修正・開発中の課題は [更新履歴（CHANGELOG.md）](CHANGELOG.md) を参照してください。
 
 ## β版の状態
