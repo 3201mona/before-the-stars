@@ -349,6 +349,10 @@ window.CITY_COMMAND_DATA={"schema_version":"city-command-state/1.28.0","approval
   function renderMap(){
     clearMap();
     const navalMode=$('naval-info')&&!$('naval-info').hidden;
+    // 攻撃・移動・輸送の行先を選ぶ間だけ、軍旗のクリックを背景の都市へ通す。
+    // 通常時は軍旗クリックによる個別部隊選択を維持する。
+    $('field-army-markers')?.classList.toggle('destination-selection',
+      !navalMode&&['ATTACK','MOVE','TRANSPORT'].includes(activeCommand)&&candidateIds.size>0);
     if(navalMode){for(const [id,city] of Object.entries(state.cities))if(city.geography?.sea_zone_id===selectedNavalZone)setMapClass(id,'command-candidate');return;}
     if(selectedId)setMapClass(selectedId,'selected');
     if(activeCommand)for(const id of candidateIds)setMapClass(id,'command-candidate');
