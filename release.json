@@ -1,9 +1,9 @@
 {
-  "public_version": "1.0.0-beta.10",
-  "label": "Ver.1.0 β10",
+  "public_version": "1.0.0-beta.11",
+  "label": "Ver.1.0 β11",
   "release_status": "published",
-  "release_date": "2026-10-24",
+  "release_date": "2026-10-25",
   "entry": "index.html",
   "game": "runtime/game.html",
-  "patch_id": "20261024-withdrawal-markers-coastal-landing"
+  "patch_id": "20261025-ai-crisis-security-tempo"
 }
