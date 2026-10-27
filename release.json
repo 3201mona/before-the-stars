@@ -1,9 +1,9 @@
 {
-  "public_version": "1.0.0-beta.14",
-  "label": "Ver.1.0 β14",
+  "public_version": "1.0.0-beta.15",
+  "label": "Ver.1.0 β15",
   "release_status": "published",
-  "release_date": "2026-10-25",
+  "release_date": "2026-10-27",
   "entry": "index.html",
   "game": "runtime/game.html",
-  "patch_id": "20261025-approved-flag-layout"
+  "patch_id": "20261027-political-reference"
 }

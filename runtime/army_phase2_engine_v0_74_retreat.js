@@ -445,6 +445,7 @@
   }
 
   function improveFieldArmy(state, armyId, actionType, config, cityRecord, option = {}) {
+    if(state.runtime_flow_phase==='POLITICAL')fail('POLITICAL_PHASE_READ_ONLY');
     const preview = previewFieldArmyAction(state, armyId, actionType, config, cityRecord, option), army = requireArmy(state, armyId);
     if ((state.factions[army.faction].treasury || 0) < preview.treasury_cost) fail('TREASURY_INSUFFICIENT');
     if ((state.city_logistics[army.location_city_id]?.material_stock || 0) < preview.materials_cost) fail('MATERIALS_INSUFFICIENT');
