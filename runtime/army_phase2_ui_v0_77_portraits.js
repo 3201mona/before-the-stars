@@ -5,6 +5,9 @@
   const SAVE_KEY='american-revolution-slg/army-phase2/v0.73-military-funds-candidate',STARTED_KEY='american-revolution-slg/v0.29/game-started',AUTO_START_KEY='american-revolution-slg/v0.29/auto-start-once',PENDING_FACTION_KEY='american-revolution-slg/v0.29/pending-faction',PENDING_RANDOM_SEED_KEY='american-revolution-slg/v0.53/pending-random-seed',SVG_NS='http://www.w3.org/2000/svg';
   const storage=(()=>{try{if(window.localStorage)return window.localStorage;}catch(_error){}const data=new Map();return{getItem:key=>data.has(key)?data.get(key):null,setItem:(key,value)=>data.set(key,String(value)),removeItem:key=>data.delete(key)};})();
   const SEVEN_COLORS=Object.freeze(window.CITY_COMMAND_CONFIG.seven_color_palette.map(entry=>entry.color)),UI_STAT_COLORS=Object.freeze(['#ff4d57','#ff6747','#ff9f43','#63d779','#43c9f5','#55a9ff','#8bbcff']);
+  // National mobilizable manpower is a concealed seven-band political indicator.
+  // Only the manpower gained/spent by a specific order may be shown numerically.
+  function maskedMobilizable(value){const level=window.PoliticalPhaseEngine.manpowerBand(value).level,label=window.CITY_COMMAND_CONFIG.political_situation.manpower_labels[level];return `<span style="color:${SEVEN_COLORS[level]};font-weight:900">${label}</span>`;}
   const COMMANDER_DISPLAY_ORDER=['CMD_PAT_WASHINGTON','CMD_PAT_WARD','CMD_PAT_SCHUYLER','CMD_PAT_LEE','CMD_PAT_PUTNAM','CMD_BRI_GAGE','CMD_BRI_HOWE','CMD_BRI_CLINTON','CMD_BRI_BURGOYNE','CMD_BRI_DUNMORE'];
   const commanderOrder=id=>{const index=COMMANDER_DISPLAY_ORDER.indexOf(id);return index<0?999:index;};
   const COMMANDER_BIOGRAPHIES={
@@ -96,7 +99,7 @@
       const beforeMaterials=Number(city.stockpile.MATERIALS),funds=Number(state.factions[currentFaction()].treasury),shortages=actionAffordability(estimate,{faction:currentFaction()},city);
       // Check all other engine restrictions without committing the preview state.
       if(!shortages.length){try{E.formGarrison(state,cityId,currentFaction(),troops,window.PHASE2_CONFIG);}catch(error){shortages.push(garrisonErrorLabel(error.message));}}
-      const allowed=!shortages.length,resourceRow=(label,before,cost)=>`<div class="routine-order-row"><span>${label}</span><strong>${before<cost?`${before.toLocaleString()} ／ 必要 ${cost.toLocaleString()}`:`${before.toLocaleString()} → ${(before-cost).toLocaleString()} <b class="negative">（−${cost.toLocaleString()}）</b>`}</strong></div>`,speech=`<div>${allowed?`${cityName}で守備隊${troops.toLocaleString()}名を編成して増員し${currentFaction()==='PATRIOT'?'ますぜ':'ます'}。`:'今は守備隊を編成できません。'}</div><div class="routine-order-summary"><div class="routine-order-row"><span>守備隊${allowed?'':'（編成予定）'}</span><strong>${garrison.manpower.toLocaleString()} → ${(garrison.manpower+troops).toLocaleString()}名 <b class="positive">（+${troops.toLocaleString()}）</b></strong></div>${resourceRow('軍資金',funds,estimate.treasury_cost)}${resourceRow('物資備蓄',beforeMaterials,estimate.materials_cost)}${resourceRow('動員可能数',Number(state.factions[currentFaction()].mobilizable_manpower),estimate.mobilizable_manpower_cost)}</div><div class="routine-order-note">${allowed?'守備隊編成では動員可能数を消費します。':shortages.join('<br>')}</div>`;
+      const allowed=!shortages.length,resourceRow=(label,before,cost)=>`<div class="routine-order-row"><span>${label}</span><strong>${before<cost?`${before.toLocaleString()} ／ 必要 ${cost.toLocaleString()}`:`${before.toLocaleString()} → ${(before-cost).toLocaleString()} <b class="negative">（−${cost.toLocaleString()}）</b>`}</strong></div>`,manpowerRow=(before,cost)=>`<div class="routine-order-row"><span>動員可能数</span><strong>${before<cost?`${maskedMobilizable(before)} ／ 必要 ${cost.toLocaleString()}名`:`${maskedMobilizable(before)} → ${maskedMobilizable(before-cost)} <b class="negative">（−${cost.toLocaleString()}名）</b>`}</strong></div>`,speech=`<div>${allowed?`${cityName}で守備隊${troops.toLocaleString()}名を編成して増員し${currentFaction()==='PATRIOT'?'ますぜ':'ます'}。`:'今は守備隊を編成できません。'}</div><div class="routine-order-summary"><div class="routine-order-row"><span>守備隊${allowed?'':'（編成予定）'}</span><strong>${garrison.manpower.toLocaleString()} → ${(garrison.manpower+troops).toLocaleString()}名 <b class="positive">（+${troops.toLocaleString()}）</b></strong></div>${resourceRow('軍資金',funds,estimate.treasury_cost)}${resourceRow('物資備蓄',beforeMaterials,estimate.materials_cost)}${manpowerRow(Number(state.factions[currentFaction()].mobilizable_manpower),estimate.mobilizable_manpower_cost)}</div><div class="routine-order-note">${allowed?'守備隊編成では動員可能数を消費します。':shortages.join('<br>')}</div>`;
       garrisonBox.hidden=true;
       const approved=await window.__cityCommandUI?.confirmRoutineOrder?.(speech,allowed?'守備隊編成　実行確認':'守備隊編成　実行不可',true,allowed);
       if(!approved){garrisonBox.hidden=false;renderGarrisonEstimate();return;}
@@ -153,7 +156,7 @@
     const shortages=[];
     if(funds<result.treasury_cost)shortages.push(`軍資金が不足しています（必要 ${fmt(result.treasury_cost)}、保有 ${fmt(funds)}）。`);
     if(materials<result.materials_cost)shortages.push(`所在都市の物資が不足しています（必要 ${fmt(result.materials_cost)}、備蓄 ${fmt(materials)}）。`);
-    if(manpower<result.mobilizable_manpower_cost)shortages.push(`動員可能数が不足しています（必要 ${fmt(result.mobilizable_manpower_cost)}名、現在 ${fmt(manpower)}名）。`);
+    if(manpower<result.mobilizable_manpower_cost)shortages.push(`動員可能数が不足しています（必要 ${fmt(result.mobilizable_manpower_cost)}名、現在 ${maskedMobilizable(manpower)}）。`);
     return shortages;
   }
   async function renderActionConfirmation(){

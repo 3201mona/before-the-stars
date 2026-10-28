@@ -131,7 +131,7 @@
       const details=[
         {label:'発生海域',value:'カリブ・南部海域',className:'warning'},
         {label:'参戦主体',value:'スペイン王国',className:'positive'},
-        {label:'動員可能数',segments:[{text:`${Number(spain.before||0).toLocaleString()}`,color:'#f1cd6a'},{text:' → '},{text:`${Number(spain.after||0).toLocaleString()}`,color:'#78c4ff'}]}
+        {label:'動員可能数',segments:[{text:manpowerDisplay(spain.before).label,color:'#f1cd6a'},{text:' → '},{text:manpowerDisplay(spain.after).label,color:'#78c4ff'},{text:`（+${Number(spain.arrived||0).toLocaleString()}名）`,color:'#78c4ff'}]}
       ];
       if(spainNaval)details.push({label:'南部外国海軍点',value:`+${Number(spainNaval.points)||0}`,className:'positive'});
       notices.push({title:'スペイン本格介入',faction,majorEvent:true,sceneImage:'assets/event_scenes/spain.png',emblem:'SPAIN',speaker:'スペイン王国',quote:'「スペインは、英国に対する\n戦いへ正式に加わる。」',description:'スペインが本格的に参戦し、南部・カリブ方面で英国勢力に圧力を加え始めました。\nその海上支援は独立派にとって大きな後押しとなります。',effectLead:'スペイン本格介入 ― 戦局への影響',details});

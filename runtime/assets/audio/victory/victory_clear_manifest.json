@@ -1,0 +1,15 @@
+{
+  "asset": "victory_clear",
+  "version": "BTS_VICTORY_CLEAN_V1",
+  "approved_by_user": "2026-10-28",
+  "release": "1.0.0-beta.16",
+  "duration_seconds": 70.514624,
+  "sample_rate_hz": 44100,
+  "channels": 2,
+  "source_master_sha256": "9f196a71222f108be322a61423f4c045de2e181dfa9ebefe29a614cea9117857",
+  "mp3_sha256": "b8c272b692a144bc5aa90d4745106607b0a561119ca890c7f5413a1f000c992e",
+  "ogg_sha256": "6e08378fbeba18fc4457bc98b8df9ae103cd3880a932d7dd7a4a1f142c51bcea",
+  "soundfont": "GeneralUser GS 2.0.3 / S. Christian Collins",
+  "license": "../../../../licenses/GeneralUser_GS.txt",
+  "source_midi_sha256": "4db60fb203c244a00ba1eac9297af3b460a2087565d43fa94616e1e6f21a8e5c"
+}
