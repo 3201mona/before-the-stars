@@ -6,7 +6,9 @@
 
 [公開サイト](https://3201mona.github.io/before-the-stars/) ｜ [遊び方・クレジット](https://3201mona.github.io/before-the-stars/about.html)
 
-**Ver.1.0 β15 / 2026-10-27公開**
+**Ver.1.0 β16 / 2026-10-28公開**
+
+β16では、王党派の本国増援を到着率が最良の使用可能港から受け入れるようにし、動員可能数の残数表示を7段階のラベルへ統一しました。承認済みの新版勝利BGMも組み込みました。β15の政治参照機能と過去の修正を保持しています。詳細は [BETA16_MOBILIZATION_VICTORY_REPORT.md](BETA16_MOBILIZATION_VICTORY_REPORT.md) を参照してください。
 
 β15では、政治フェーズの軍事予算・軍需物資支援・人事関連に参照カードを追加しました。軍資金、補給予定量と内訳、配備済み将軍の階級・州・所在都市・兵数を確認できます。将軍一覧から部隊詳細を開けますが、政治フェーズ中は部隊命令を実行できません。指定の説明文を反映し、β14以前の修正を保持しています。検証と制限は [BETA15_POLITICAL_REFERENCE_REPORT.md](BETA15_POLITICAL_REFERENCE_REPORT.md) を参照してください。
 
@@ -89,3 +91,5 @@ Copyright © 2026 さつまいモナ（satumaimona）
 独自部分は非商用で利用・再配布できます。無断改変および無許可の商用利用は禁止です。詳細は [LICENSE.txt](LICENSE.txt) を参照してください。この公開はMIT等のオープンソースライセンスでの提供ではありません。
 
 大イベントBGMに含まれるVCSL音源素材の出典は [licenses/VCSL_CC0.txt](licenses/VCSL_CC0.txt) に記載しています。VCSLのCC0はゲーム全体へ適用されるものではありません。
+
+勝利BGMはGeneralUser GS 2.0.3（S. Christian Collins）の音源で制作しています。音源の利用条件は [licenses/GeneralUser_GS.txt](licenses/GeneralUser_GS.txt) に保存しています。
