@@ -1,0 +1,65 @@
+'use strict';
+/* Review-only route lens: validate canonical geography and production wiring.
+ * Browser interaction is tested separately; this script never changes game state.
+ */
+const fs=require('node:fs');
+const path=require('node:path');
+const vm=require('node:vm');
+const assert=require('node:assert/strict');
+const root=path.resolve(__dirname,'..');
+const read=relative=>fs.readFileSync(path.join(root,relative),'utf8');
+const mapSource=read('runtime/canonical_map_runtime_v0_66.js');
+const routeSource=read('runtime/route_connection_lens_v1.js');
+const routeCSS=read('runtime/route_connection_lens_v1.css');
+const gameHTML=read('runtime/game.html');
+const mapPrefix=mapSource.slice(0,mapSource.indexOf('const seaZoneByUnit = {}'));
+assert.ok(mapPrefix.length>1000,'承認済み地理データが読める');
+const data=vm.runInNewContext(mapPrefix+';({units,topology,seaTransport})');
+const {units,topology,seaTransport}=data;
+assert.equal(Object.keys(units).length,50);
+assert.equal(topology.edges.length,104);
+assert.equal(seaTransport.rules.same_zone_only,false);
+assert.equal(seaTransport.rules.origin_must_be_port,true);
+assert.equal(seaTransport.rules.landing_destination_must_be_coastal,true);
+const byCity=new Map(Object.keys(units).map(id=>[id,new Set()]));
+for(const edge of topology.edges){
+  assert.ok(!edge.type.startsWith('water_'),'既存地図の104辺は陸路・海峡の経路');
+  byCity.get(edge.a).add(edge.b);
+  byCity.get(edge.b).add(edge.a);
+}
+assert.equal([...byCity.values()].reduce((total,set)=>total+set.size,0),208);
+assert.equal(byCity.get('MA_03').size,4,'ボストンから直接陸路4本');
+assert.equal(byCity.get('MA_03').has('RI_01'),false,'ボストンからプロビデンスへ陸路直結なし');
+assert.equal(units.MA_03.naval_class,'PORT');
+assert.equal(units.RI_01.naval_class,'PORT');
+assert.equal(units.NY_05.naval_class,'LANDING_ONLY');
+assert.equal(byCity.get('NY_04').has('NY_05'),true,'ロングアイランド海峡横断は地形上の陸路');
+assert.equal(byCity.get('MA_02').has('MA_03'),true,'ウスターとボストンは陸路直結');
+assert.match(gameHTML,/<link[^>]+route_connection_lens_v1\.css/,'スタイルの組込');
+assert.match(gameHTML,/<script[^>]+route_connection_lens_v1\.js/,'表示処理の組込');
+assert.match(routeSource,/if\(context==='political'\)[\s\S]*?showInfoTab\('city'\)/,'政治フェーズの初期表示は通常地図＋都市情報');
+assert.match(routeSource,/document\.getElementById\('political-phase-modal'\)/,'現在の政治会議を閲覧中のみ隠す');
+assert.match(routeSource,/political\.hidden=false/,'議会に戻す');
+assert.match(routeSource,/route-lens-return-political/,'議会へ戻るは明示的な独立ボタン');
+assert.match(routeSource,/context==='political'\)showConnections\(\)/,'政治閲覧中の接続ボタンは議会へ戻さず接続を開く');
+assert.match(routeSource,/const allowedPoliticalInfo=.*#city-info,#state-info,#naval-info/,'政治閲覧中も情報カード内操作は許可');
+assert.match(routeSource,/window\.__cityCommandUI\?\.selectCity\?\.\(id\)/,'通常戦略盤から都市クリックで都市情報を選択');
+assert.match(routeSource,/function onInfoTab\(tab\)/,'情報タブ切り替え時の表示状態を同期');
+assert.match(routeSource,/event\.stopImmediatePropagation\(\)/,'閲覧中の地図操作は既存の指令クリックを抑止');
+assert.match(routeSource,/seaPossible\(origin,target\)/,'目的都市の指定時のみ海路を描く');
+assert.match(routeSource,/route-lens-land-line/,'直接陸路を描く');
+assert.match(routeSource,/route-lens-sea-line/,'目的都市への海路を描く');
+assert.match(routeSource,/route-lens-tab-map/,'通常戦略盤とのタブ切り替え');
+assert.match(routeSource,/route-lens-tab-connections/,'陸海接続モードへのタブ切り替え');
+assert.match(routeSource,/infoTabs\.appendChild\(openButton\)/,'指令用の小ボタンを右の情報タブ列に配置');
+assert.match(routeSource,/infoTabs\.insertAdjacentElement\('afterend',dock\)/,'詳細パネルはタブ列の外に配置');
+assert.match(routeSource,/strategicNote\.insertAdjacentElement\('afterend',politicalButton\)/,'政治用ボタンを戦略支配説明欄の後に配置');
+assert.doesNotMatch(routeSource,/header\.appendChild\(politicalButton\)/,'政治見出しの間延び配置を再発させない');
+assert.match(routeCSS,/info-tabs\.route-lens-tabs/,'4カラムの情報タブ配置');
+assert.match(routeCSS,/route-lens-political-bar/,'閲覧中のみ小さな議会へ戻るバーを表示');
+assert.match(routeCSS,/route-lens-political \.panel #city-command-section/,'政治中の都市指令を非表示');
+assert.match(routeCSS,/route-lens-political \.panel #naval-command-panel/,'政治中の制海指令を非表示');
+assert.match(routeCSS,/route-lens-political #field-army-modal \.army-command-panel/,'将軍詳細は見られても部隊指令は非表示');
+assert.match(routeCSS,/route-lens-land-line/);
+assert.match(routeCSS,/route-lens-sea-line/);
+console.log('PASS route lens integration: 50 cities, 104 canonical edges, 4 Boston neighbors, coastal/strait rules, political/command UI wiring');

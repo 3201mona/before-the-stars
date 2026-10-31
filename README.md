@@ -6,7 +6,9 @@
 
 [公開サイト](https://3201mona.github.io/before-the-stars/) ｜ [遊び方・クレジット](https://3201mona.github.io/before-the-stars/about.html)
 
-**Ver.1.0 β16 / 2026-10-28公開**
+**Ver.1.0 β17 / 2026-10-31公開**
+
+β17では、都市間の接続ハイライトと政治中の戦略盤閲覧を追加しました。初回政治フェーズのBGM無音を修正し、独立派・王党派に共通の総司令官生存リスク評価を導入しました。公開基準・検証範囲は [BETA17_RELEASE_REPORT.md](BETA17_RELEASE_REPORT.md) を参照してください。
 
 β16では、王党派の本国増援を到着率が最良の使用可能港から受け入れるようにし、動員可能数の残数表示を7段階のラベルへ統一しました。承認済みの新版勝利BGMも組み込みました。β15の政治参照機能と過去の修正を保持しています。詳細は [BETA16_MOBILIZATION_VICTORY_REPORT.md](BETA16_MOBILIZATION_VICTORY_REPORT.md) を参照してください。
 

@@ -5,7 +5,7 @@ for(const fn of ['phase2_data_v0_9_funds.js','political_phase_data_v0_1.js'])vm.
 vm.runInContext(fs.readFileSync(path.join(base,'canonical_city_runtime_v0_74_retreat.js'),'utf8').split('\n')[0],ctx);
 vm.runInContext(fs.readFileSync(path.join(base,'commander_roster_runtime_v0_77_portraits.js'),'utf8'),ctx);
 for(const [k,fn] of Object.entries({ArmyPhase2Engine:'army_phase2_engine_v0_74_retreat.js',BattleEngine:'battle_engine_v0_74_retreat.js',PoliticalPhaseEngine:'political_phase_engine_v0_77_portraits.js',CityCommandEngine:'city_command_engine_v0_18.js',NavalControlEngine:'canonical_naval_runtime_v0_67.js'}))ctx[k]=require(path.join(base,fn));
-for(const fn of ['royalist_ai_turn_v1_15.js','patriot_sparring_ai_v1_15.js','royalist_ai_official_browser_v3.js','patriot_ai_official_browser_v2.js'])vm.runInContext(fs.readFileSync(path.join(base,fn),'utf8'),ctx);
+for(const fn of ['royalist_ai_turn_v1_15.js','patriot_sparring_ai_v1_15.js','commander_survival_policy_v1.js','royalist_ai_official_browser_v3.js','patriot_ai_official_browser_v2.js'])vm.runInContext(fs.readFileSync(path.join(base,fn),'utf8'),ctx);
 const {BattleEngine:B,ArmyPhase2Engine:E,PHASE2_CONFIG:CFG,CITY_COMMAND_DATA:C,PoliticalPhaseEngine:P,POLITICAL_PHASE_CONFIG:POL}=ctx;
 globalThis.NavalControlEngine=ctx.NavalControlEngine;
 const clone=x=>JSON.parse(JSON.stringify(x));

@@ -11,7 +11,9 @@
     function currentOwner(){
       if((document.getElementById('game-start-screen')&&!document.getElementById('game-start-screen').hidden)||window.BeforeTheStarsOpening?.isActive?.())return 'opening';
       if(window.__majorEventUI?.isOpen?.()||window.__majorEventBGM?.isActive?.())return 'major';
-      if(!document.getElementById('game-conclusion-screen')?.hidden||!document.getElementById('game-conclusion-intro')?.hidden)return 'ending';
+      // Missing conclusion overlays are not open. On a fresh start the first
+      // political phase may open before the completion UI has installed them.
+      if(document.getElementById('game-conclusion-screen')?.hidden===false||document.getElementById('game-conclusion-intro')?.hidden===false)return 'ending';
       if(window.__phase2UI?.getState?.()?.game_conclusion)return 'ending';
       const phase=window.__phase2UI?.getState?.()?.runtime_flow_phase;
       return phase==='POLITICAL'?'political':phase==='COMMAND'?'command':null;

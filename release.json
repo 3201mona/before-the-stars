@@ -1,9 +1,9 @@
 {
-  "public_version": "1.0.0-beta.16",
-  "label": "Ver.1.0 β16",
+  "public_version": "1.0.0-beta.17",
+  "label": "Ver.1.0 β17",
   "release_status": "published",
-  "release_date": "2026-10-28",
+  "release_date": "2026-10-31",
   "entry": "index.html",
   "game": "runtime/game.html",
-  "patch_id": "20261028-mobilization-mask-victory-bgm"
+  "patch_id": "20261031-route-lens-bgm-shared-hq"
 }
