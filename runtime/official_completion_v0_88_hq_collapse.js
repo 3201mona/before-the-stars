@@ -111,5 +111,9 @@
     }
   }
   refreshSaveButtons();refreshContinueButton();evaluateImmediateConclusion();
+  // Reconcile the phase soundtrack after late-created conclusion overlays and
+  // save restoration have finished. The initial political BGM may have tried
+  // to start while these overlays did not yet exist.
+  window.__bgmControl?.syncAll?.();
   window.BeforeTheStarsSaveSystem={schema:SAVE_SCHEMA,version:VERSION,keys:{auto:AUTO_KEY,manual:MANUAL_KEY,rescue:RESCUE_KEY},buildSave,parseSave,manualSave,manualLoad,autoSave,applySave,finishGame,evaluateImmediateConclusion,politicalCollapseDecision,evaluatePoliticalCollapse,selectHonoredCommanders};
 })();
