@@ -1,0 +1,327 @@
+{
+  "base_commit": "ed51c49f0dd430bbaabf0d56cb2accb8fdac2fc0",
+  "input_zip": "BTS_ROUTE_LENS_BGM_SHARED_HQ_RISK_DEV_20261031_FULL(1).zip",
+  "date_jst": "2026-10-31",
+  "regressions": [
+    {
+      "test": "approved_flag_interaction_regression.cjs",
+      "exit": 0,
+      "tail": "PASS: city-destination click-through (attack/move/transport), army pointer restoration, script links, original map click layer\n"
+    },
+    {
+      "test": "approved_flag_layout_regression.cjs",
+      "exit": 0,
+      "tail": "shifts: [{\"pair\":\"RI_01/RI_02\",\"shifts\":{\"RI_01\":{\"dx\":0,\"dy\":-10},\"RI_02\":{\"dx\":0,\"dy\":10}}},{\"pair\":\"MA_04/RI_01\",\"shifts\":{\"RI_01\":{\"dx\":0,\"dy\":15},\"MA_04\":{\"dx\":0,\"dy\":-15}}},{\"pair\":\"NJ_02/NJ_03\",\"shifts\":{\"NJ_02\":{\"dx\":-20,\"dy\":0},\"NJ_03\":{\"dx\":20,\"dy\":0}}},{\"pair\":\"NJ_01/DE_02\",\"shifts\":{\"NJ_01\":{\"dx\":15,\"dy\":0},\"DE_02\":{\"dx\":-20,\"dy\":0}}}]\n"
+    },
+    {
+      "test": "beta11-ai-tempo-regression.cjs",
+      "exit": 0,
+      "tail": "PASS beta11 AI tempo: 52 focused VM checks across both factions\n"
+    },
+    {
+      "test": "beta13-city-access-regression.cjs",
+      "exit": 0,
+      "tail": "PASS β13 都市選択メニュー/州内リンク/部隊所在リンク/拡大幅: 50都市、14州地区、回帰成功\n"
+    },
+    {
+      "test": "beta14-mobilization-masking-regression.cjs",
+      "exit": 0,
+      "tail": "PASS 王党派：容量最大の中央港ではなく到着率最大の北部港を使う\nPASS 王党派：最良港が封鎖されていると次点の中央海域を使う\nPASS 王党派：南部のみ使用可能なら損耗65％、無港なら到着0\nPASS 独立派：従来どおり補給港の容量順を維持する\nPASS 政治状態：JSON保存・復元後も動員令結果を保持する\nPASS スペイン本格介入の特別報告：残数の生値を表示しない\nPASS 政治の通常報告：動員令・正規軍増派の増分だけを数字表示\nPASS 守備隊編成・募兵警告：国全体の動員可能残数は段階ラベル\nPASS HTMLの初期国情報・旗配置検証画面にも動員残数の生値を置かない\nPASS: 9 mobilization and masking checks\n"
+    },
+    {
+      "test": "beta14-political-reference-regression.cjs",
+      "exit": 0,
+      "tail": "PASS: foreign/home/domestic supply projections, both factions, active roster, read-only command guards, script order\n"
+    },
+    {
+      "test": "beta16-victory-audio-regression.cjs",
+      "exit": 0,
+      "tail": "PASS: 6 ending behavior scenarios; approved audio hashes and cache URLs\n"
+    },
+    {
+      "test": "beta8-portfolio-regression.cjs",
+      "exit": 0,
+      "tail": "_VOTES_TO_FIVE\"]}\nPASS At five-plus votes, no forced campaign displaces front and supply {\"active\":false,\"votes\":13,\"goal_votes\":5,\"stage\":\"FIVE_VOTES_SECURED\",\"target\":null,\"assessed_at\":\"1776-04\",\"goals\":[\"DEFEND_VOTES\",\"MAINTAIN_OPERATING_FRONT\",\"SUSTAIN_SUPPLY\",\"USE_POLITICAL_ACCESS\"]}\nPASS SUMMARY: 10 beta8 mission checks + 9 late vote checks\n"
+    },
+    {
+      "test": "beta9-combined-battle-state-audit.cjs",
+      "exit": 0,
+      "tail": "BETA9_COMBINED_BATTLE_STATE_AUDIT {\"scenarios\":257,\"assertions\":35998,\"randomOutcomes\":{\"resolved\":100,\"continued\":196,\"routed\":2,\"maintenance\":64,\"losses\":268780}}\n"
+    },
+    {
+      "test": "beta9-withdrawal-map-ui-regression.cjs",
+      "exit": 0,
+      "tail": "PASS β9 撤収画面・戦場旗配置 UI 回帰: 18 assertions\n"
+    },
+    {
+      "test": "blockade-combat-regression.cjs",
+      "exit": 0,
+      "tail": "s Patriot Plymouth ends blockade after actual occupation\nPASS BRITISH blockades Patriot Plymouth still clears blockade after port is truly abandoned\nPASS BRITISH blockades Patriot Plymouth ends blockade if naval supremacy is lost\nPASS BRITISH blockades Patriot Plymouth expires the operation in the following month\nBLOCKADE_COMBAT_REGRESSION 28 / 28\n"
+    },
+    {
+      "test": "blockade-monthly-and-reinforcement-regression.cjs",
+      "exit": 0,
+      "tail": "持、兵力劣勢なら解除\nPASS 王党派 軍の主力が進攻中なら封鎖は翌月の判断まで保持\nPASS 王党派 プレイヤー維持はコマンド1・翌月封鎖を確定\nPASS 王党派 維持拒否で封鎖が解け、コマンド非消費\nPASS 王党派 戦闘終了または制海権喪失なら延長不可\nPASS 王党派 AIは実コマンドを消費して維持、兵力劣勢なら解除\nPASS LAND 援軍元が敵に落ちても戦場の旗と出発元の矢印が残る\nPASS LAND 真の部隊崩壊時には原因を説明するアクション記録\nPASS SEA 援軍元が敵に落ちても戦場の旗と出発元の矢印が残る\nPASS SEA 真の部隊崩壊時には原因を説明するアクション記録\nMONTHLY_BLOCKADE_REINFORCEMENT_REGRESSION 14 / 14\n"
+    },
+    {
+      "test": "forced-coastal-battle-regression.cjs",
+      "exit": 0,
+      "tail": "定\nPASS BRITISH 継続維持の翌月も強行上陸可能\nPASS BRITISH 都市被害大は港閉鎖だが海岸上陸は許可\nPASS 港が正常なら通常の港湾到着として分類\nPASS 陸接援軍は海上処理に入らない\nPASS 内陸・上陸専用・損壊港の分類は異なる\nPASS 上陸専用地点への初期攻撃と継続戦闘援軍も同じ経路\nPASS 上陸攻撃の稼働港・封鎖港・損壊港を区別\nPASS AIも封鎖港を強行上陸候補と認識し、到着率を維持\nPASS 敵味方が強行上陸した継続戦闘を再開・解決できる\nPASS 強行上陸の記録はJSON保存復元後も補給判定と共存\nPASS 強行上陸軍の海岸からの再乗船は本隊の封鎖港脱出を許さない\nFORCED_COASTAL_BATTLE_REGRESSION 19 / 19\n"
+    },
+    {
+      "test": "initial-bgm-and-chief-isolation-regression.cjs",
+      "exit": 0,
+      "tail": "PASS initial BGM and shared commander-survival wiring: 15 checks\n"
+    },
+    {
+      "test": "patriot-base-campaign-regression.cjs",
+      "exit": 0,
+      "tail": "nch_army\":\"ARM_PAT_GREENE\",\"source_zone\":\"NORTH\",\"destination_zone\":\"SOUTH\",\"worst_zone\":\"SOUTH\",\"arrival_rate\":0.9,\"limiting_influence\":0,\"stalled\":false,\"defenders\":10015,\"score\":41.17,\"distance_from_port\":1},\"ranked\":[]}\nPASS Only a safe high-arrival amphibious bridgehead receives strategy support {}\nPASS patriot base campaign: 25 focused tests\n"
+    },
+    {
+      "test": "patriot_attack_availability_incident_regression.cjs",
+      "exit": 0,
+      "tail": "ssified as a British target\",\"Empty Patriot-controlled destination is rejected\",\"A stationed British defender is still attackable\",\"A British garrison is still attackable\",\"A busy attacking army is still prohibited\",\"Normal non-attack orders do not need a control lookup\",\"No bundled AI module invokes a control helper missing from its own module\"]}\n"
+    },
+    {
+      "test": "route-lens-integration-regression.cjs",
+      "exit": 0,
+      "tail": "PASS route lens integration: 50 cities, 104 canonical edges, 4 Boston neighbors, coastal/strait rules, political/command UI wiring\n"
+    },
+    {
+      "test": "shared-commander-survival-regression.cjs",
+      "exit": 0,
+      "tail": "PASS shared commander-in-chief survival policy: 28 symmetric risk cases\n"
+    }
+  ],
+  "campaigns": [
+    {
+      "mode": "ENGINE_ONLY_AI_VS_AI",
+      "limitations": [
+        "Uses production engine modules including political phase and commander events, but DOM battle presentation, notifications, human-tactic choice and localStorage persistence are not simulated",
+        "Neither side is a human player; player flag only defines action order and UI role",
+        "Defender AI tactic and retreat decisions are used; attacker selects normal attack"
+      ],
+      "player": "BRITISH",
+      "seed": 29,
+      "requested_months": 10,
+      "completed_months": 10,
+      "duration_ms": 60596,
+      "counts": {
+        "ATTACK": 6,
+        "MOVE": 7,
+        "STOCKPILE_AID": 2,
+        "OPINION": 10,
+        "GARRISON": 6,
+        "IMPROVE": 12,
+        "FORM": 3,
+        "RECRUIT": 6,
+        "TRANSPORT": 1,
+        "SECURITY": 5,
+        "NAVAL": 2
+      },
+      "battleStats": {
+        "started": 6,
+        "resolved": 5,
+        "continued": 1,
+        "routed": 1,
+        "reinforced": 0,
+        "withdrawn": 0
+      },
+      "invariantChecks": 494,
+      "failures": [],
+      "last": {
+        "period": "1776-04",
+        "troops": {
+          "PATRIOT": 19330,
+          "BRITISH": 16460
+        },
+        "armies": {
+          "PATRIOT": 5,
+          "BRITISH": 7
+        },
+        "reserves": {
+          "PATRIOT": 2,
+          "BRITISH": 0
+        },
+        "occupied": {
+          "PATRIOT": 4,
+          "BRITISH": 4
+        },
+        "treasury": {
+          "PATRIOT": 1570,
+          "BRITISH": 1630
+        },
+        "mobilizable": {
+          "PATRIOT": 17550,
+          "BRITISH": 20760
+        },
+        "war_will": {
+          "PATRIOT": 80,
+          "BRITISH": 68
+        },
+        "trust": {
+          "PATRIOT": 61,
+          "BRITISH": 59
+        },
+        "battles_active": 1,
+        "votes": {
+          "PATRIOT": 7,
+          "BRITISH": 1,
+          "NEUTRAL": 5
+        },
+        "star": {
+          "PATRIOT": 14,
+          "BRITISH": 7,
+          "UNCLAIMED": 155
+        }
+      },
+      "runner_template_commit": "7f3106b5e0dd5ac26ec84107cfea075f2f92a9c8"
+    },
+    {
+      "mode": "ENGINE_ONLY_AI_VS_AI",
+      "limitations": [
+        "Uses production engine modules including political phase and commander events, but DOM battle presentation, notifications, human-tactic choice and localStorage persistence are not simulated",
+        "Neither side is a human player; player flag only defines action order and UI role",
+        "Defender AI tactic and retreat decisions are used; attacker selects normal attack"
+      ],
+      "player": "PATRIOT",
+      "seed": 11,
+      "requested_months": 10,
+      "completed_months": 10,
+      "duration_ms": 79393,
+      "counts": {
+        "MOVE": 17,
+        "ATTACK": 1,
+        "RECRUIT": 1,
+        "STOCKPILE_AID": 5,
+        "OPINION": 11,
+        "GARRISON": 7,
+        "SECURITY": 18
+      },
+      "battleStats": {
+        "started": 1,
+        "resolved": 1,
+        "continued": 0,
+        "routed": 0,
+        "reinforced": 0,
+        "withdrawn": 0
+      },
+      "invariantChecks": 460,
+      "failures": [],
+      "last": {
+        "period": "1776-04",
+        "troops": {
+          "PATRIOT": 18334,
+          "BRITISH": 14150
+        },
+        "armies": {
+          "PATRIOT": 6,
+          "BRITISH": 5
+        },
+        "reserves": {
+          "PATRIOT": 0,
+          "BRITISH": 0
+        },
+        "occupied": {
+          "PATRIOT": 9,
+          "BRITISH": 6
+        },
+        "treasury": {
+          "PATRIOT": 2220,
+          "BRITISH": 3110
+        },
+        "mobilizable": {
+          "PATRIOT": 23200,
+          "BRITISH": 25000
+        },
+        "war_will": {
+          "PATRIOT": 82,
+          "BRITISH": 72
+        },
+        "trust": {
+          "PATRIOT": 53,
+          "BRITISH": 62
+        },
+        "battles_active": 0,
+        "votes": {
+          "PATRIOT": 7,
+          "BRITISH": 2,
+          "NEUTRAL": 4
+        },
+        "star": {
+          "PATRIOT": 27,
+          "BRITISH": 18,
+          "UNCLAIMED": 131
+        }
+      },
+      "runner_template_commit": "7f3106b5e0dd5ac26ec84107cfea075f2f92a9c8"
+    }
+  ],
+  "syntax": {
+    "external_js": 53,
+    "inline_js": 1,
+    "html_references": 54,
+    "map_svg_unchanged": true
+  },
+  "tested_runtime_sha256": {
+    "runtime/almanac.html": "df58fecdd0b62ec3357e4fbf2b7f5b119bf66a59585cb68992fa172bbf19daa4",
+    "runtime/army_marker_offsets_v1.js": "48c3640612a798a2b330c228d6b3edea963d840637db5461cfd0883e74dc2756",
+    "runtime/army_phase2_engine_v0_74_retreat.js": "88661c437322e17cc744d06dcaaaf1bfd9f1b5cb2fc361bd133221ae4337ab3a",
+    "runtime/army_phase2_ui_v0_77_portraits.js": "fdbc3479d09f13cb2a39aaf979cfc9314a2ef36e5e89274df677d78800c4da3a",
+    "runtime/battle_army_marker_model_v1.js": "979f1c45588006f7550e69926111234035a921efea4a52eb2e72b2775f8996ec",
+    "runtime/battle_config_v0_1.js": "4cfd952d2c09a6c50b9802b3ac25d2d703d9fb478bcf34e81541cd5a7865400f",
+    "runtime/battle_continuity_audit_v1.js": "059b6d75b7110989d73fc63e575770a948dcb946eb7fa6af1e0ebe4fa753eb26",
+    "runtime/battle_engine_v0_74_retreat.js": "1112445e7caaaefec2a4fde2e86e57c0ac464ac317efff3d9957ef7838451472",
+    "runtime/battle_ui_v0_1.js": "ee46f8b58ca8ba4769292ea92dd7e22cc85df492feb062f8358b39002bf14ca3",
+    "runtime/blockade_maintenance_controller_v1.js": "8293d8ca51a5d2bbf328953c8899ac687969864acc01b4d7215a87cd73360c42",
+    "runtime/canonical_city_runtime_v0_74_retreat.js": "9d64282ee801d6e938d1b5d5597a87126e487593090c6a1cf4ec8bca5b532774",
+    "runtime/canonical_map_runtime_v0_66.js": "1f0222ff189f758e6c36bfd9ac0bbbc8ba4351d4086bf19cc2c064eccbae317c",
+    "runtime/canonical_naval_runtime_v0_67.js": "e8ce4c960bd2f2622d1e825b2d7a7e5bed1d49d71f415b4d7884ef82cc181895",
+    "runtime/city_command_engine_v0_18.js": "bd5350b4ec8c70f68cec27badb877ad538b090d3810b2d9ac261baed345fca96",
+    "runtime/city_control_policy_v1.js": "19b6cd8308ce8bfc41b8fb5dd12009d76cd502b441aa53f1fcaf4d615cdbaf64",
+    "runtime/command_phase_bgm_v3.js": "951a4383d8c77f5e16a05874772a97f4f1bfb6b613a9c480a26a1489a77b845f",
+    "runtime/commander_encyclopedia_data_v0_82.js": "b4d374355d4305b104e437f90053bdf4b95eb27af47834888732a1419469f7be",
+    "runtime/commander_event_engine_v0_77_portraits.js": "45c8dfd608cd6a1b37659bf076107483810b6df3f0dbc97867bbd7339438a296",
+    "runtime/commander_roster_runtime_v0_77_portraits.js": "549e8563ceabaad4f5345710ee22a60d958251c550039cf2d99b915ba99cc0d8",
+    "runtime/commander_survival_policy_v1.js": "aa9300276265600bd76db493f5dbeaf1ec5e3a99651f1aed817d4fcbc83e5644",
+    "runtime/continuation_battle_ai_v1.js": "8aebf0992db70f02b3b23e41fc8c6be3ff565b3954060086f7653ef9dc59b7c0",
+    "runtime/enemy_attack_intro_model_v1.js": "c931c1dd8c2509e34e504ca85251d011cd4e280960d8ad40403a297fd492d01a",
+    "runtime/enemy_attack_intro_v1.js": "3de771d1d6f5144c26bfc2357ebcf15891aca16f7d17f2db20d4f10a98a32d3d",
+    "runtime/event_notification_ui_v0_1.js": "336520c30f9b5f732c70253236baab714e0a45a74a718eee2de8b2d4dcfc7bbd",
+    "runtime/flag-layout-lab.html": "522eba933c114ed21ad2cf7bef1c9d2750382fd8e0a7879f5745df24a88d718e",
+    "runtime/flag_layout_lab.js": "8aea509ed592b4f37e4dec9e2b11299b84aee0b5cc6ee986253ea030a12b546c",
+    "runtime/game.html": "c3c6f154deb58cdd47f4988523247f478159adfa514e5f8035e2411b98cd4de4",
+    "runtime/game_sfx_v1.js": "1656398893afc00d45b68331f5dd043d8b02a3dea39716b7bba905cfef4006e9",
+    "runtime/game_start_ui_v0_83_title_bgm.js": "128f75f8de8eb6c075f79a2b9ef8c0beec2d327ca68aad5f1fc801b6591a7c53",
+    "runtime/major_event_bgm_v1.js": "566d55eeb04b1ce7c11d9b9bc701c77b17b942a8e5ef2a03e05d5742c5bdb8ba",
+    "runtime/major_event_ui_v1.js": "c6dd29adee1e97f3bf7637c8da67823c1eb5f281ef9fd7b371ffd6951bb932fd",
+    "runtime/official_completion_v0_88_hq_collapse.js": "e21f59db46d4ef73fe5a9fce11beadc65128b19a2fae8af20e9aebdc21dc9cb3",
+    "runtime/opening_bgm_v2_title.js": "fed0c81425457c6ccd5eb7570b44288222b67f1f6e1c9a5acad4b4bff1dce7a9",
+    "runtime/opening_sequence_v0_89_title_bgm.js": "5dbe67cc9664aa0af6e9951aa446a54ee762ed112e020681e61dcd2ff00dc745",
+    "runtime/operation_campaign_ai_v1.js": "0cba67b4ea8a7571ba54fefcc6e69ab440ed62515d7addafa9428625022ae744",
+    "runtime/opponent_ai_router_v1.js": "d8692baabb32372bce0a3f3f1d49f3e4a7bd31051abc97f1cf3e7c8122e79803",
+    "runtime/patriot_ai_official_browser_v2.js": "6117a7985cd6e2b33c474d388d3d56cff9135ecdb02cd1870d65d4f7bf382d40",
+    "runtime/patriot_ai_turn_ui_v1.js": "7ff51cabdd867e0b690f17247905613810374b536dbc898ddc9e5a4f7e79f02b",
+    "runtime/patriot_sparring_ai_v1_15.js": "7380e0a68ab4f745306bb1d9e4f68758dcdca3eab50017714ab200b3246ab5d3",
+    "runtime/phase2_data_v0_9_funds.js": "4e008238ef49991b542a0594291f467e0b190f53f47fa6d65586351d097a5925",
+    "runtime/political_phase_bgm_v1.js": "5168d0c481850479dea115975c270027f2d708bcb31c7066336c8a164b31dbfb",
+    "runtime/political_phase_data_v0_1.js": "15cd64d27be8f194ec6429505de33c9109dcfa74208f1037104556df5921aefa",
+    "runtime/political_phase_engine_v0_77_portraits.js": "36de74272dfb4b8cc911e4c802e99eddd1ea23bcccffef788981ad27a069c837",
+    "runtime/political_phase_runtime_patch_v0_72_commanders.js": "780657617743eedc9e4b4ef1b87532db9d07e44f78cb773f50e16c5849fe1668",
+    "runtime/political_phase_ui_v0_73_event_scope.js": "cd65f519e5c44953bc165b1d65c8e3135407a1c3012b63fbe3d879c8a43348a2",
+    "runtime/political_reference_model_v1.js": "74f59f0f9ea1957625ac57ab524a4d750880387f66221f3d0fee4f5789b7b856",
+    "runtime/political_tabs_ui_v0_72_commanders.js": "26037607de1ff66bd89e057f5b2962f3b0824143a0d8773caca8cb63d201360b",
+    "runtime/retreat_recovery_ai_guard_v1.js": "e1d41d96ceafa12ae0c1605306b20e5534eeff38f856bd3265cdbd9bb36d7d10",
+    "runtime/retreat_recovery_rule_v1.js": "7fe3feafdf59b84957c6b2fb8214f640462e254bbeebdcd3b34e1f88a51b2b8c",
+    "runtime/route_connection_lens_v1.css": "24927a98c3e45ac27ddb34d92306e4c1ae919464a04a34729d0a47ec0e531b90",
+    "runtime/route_connection_lens_v1.js": "a986552c6c470c13ddb813e320c825bb4e5676ec7ce07e4b14b69f1e77c05be0",
+    "runtime/royalist_ai_official_browser_v3.js": "6ecddcae1eb3e4f512543fa2a7c64093d2627a8afd192ba057fb9449d815f820",
+    "runtime/royalist_ai_turn_ui_v1_15.js": "5c06d7b12f287ed15a72cb6819c47c83cfe885ecd53f53c2a7cd75e31d61914f",
+    "runtime/royalist_ai_turn_v1_15.js": "27d1e8495ffab9f6992405a49b7c8bc11d25e57e70ef1d04cd3164bb72cd1f21",
+    "runtime/strategy_battle_map_model_v1.js": "791cf65da78655c9cc21cdd2be9f02cbba3ac4fad4894c9f4761a597b4f9ea4f",
+    "runtime/strategy_battle_map_ui_v1.js": "2f74d187ddcef8519b0edc77a011b89bb2da9c6120d871ef8587f21a441cbf74",
+    "runtime/strategy_battle_map_v1.css": "8b08d424312b81791c32380de963aafb035d0d8d709749a122fff6d661b18be4",
+    "runtime/strategy_map_zoom_v1.js": "b0b822e7a6d33ceb85ddd85ebf6020e8f769f2183d68b1a495630810a1e7a705"
+  }
+}
