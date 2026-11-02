@@ -27,7 +27,7 @@ const prefix=`beta10_campaign_${player.toLowerCase()}_seed${seed}${opts.tag?'_'+
 const checkpointPath=path.join(reportDir,`${prefix}.jsonl`);
 const summaryPath=path.join(reportDir,`${prefix}_summary.json`);
 fs.writeFileSync(checkpointPath,''); // This test owns this seed-specific generated output.
-const events=[];let failures=[],counts={},battleStats={started:0,resolved:0,continued:0,routed:0,reinforced:0,withdrawn:0},invariantChecks=0;
+const events=[];let failures=[],counts={},jointRankAttacks=[],battleStats={started:0,resolved:0,continued:0,routed:0,reinforced:0,withdrawn:0},invariantChecks=0;
 let m=clone(ctx.PHASE2_STATE_SEED),c=clone(ctx.CITY_COMMAND_DATA);
 m=P.ensureState(m,PC);m.random={algorithm:'mulberry32',initial_seed:seed,state:seed,calls:0};
 m.player_faction=player;
@@ -68,7 +68,11 @@ function validate(stage){
  }
 }
 function battleAction(f,a){
- let p;if(a.type==='ATTACK'){p=Ai[f].prepareAttack(m,c,a,engine);m=p.state;battleStats.started++;}
+ let p;if(a.type==='ATTACK'){
+  const ids=a.ids||[],roles=ids.map(id=>m.commanders?.[m.field_armies?.[id]?.commander_id]?.role||null);
+  p=Ai[f].prepareAttack(m,c,a,engine);
+  if(ids.length>1&&!roles.some(role=>role==='総司令官'||role==='方面軍司令官'))jointRankAttacks.push({period:period(m),faction:f,origin:a.origin,target:a.target,ids,roles});
+  m=p.state;battleStats.started++;}
  else {const b=m.battles[a.battle_id];if(!b)throw new Error('BATTLE_NOT_FOUND');p={state:m,battle:b};}
  const defender=other(p.battle.attacker_faction),decision=Ai[defender].defenseDecision?.(p,c)||{};
  if(decision.withdraw&&!p.battle.history?.length){
@@ -148,7 +152,8 @@ for(let i=0;i<maxMonths;i++){
  console.log('CHECKPOINT',JSON.stringify({month:i+1,period:after.period,player,seed,actions:actions.map(x=>({f:x.f,n:x.log.length,types:x.log.map(a=>a.type),duration_ms:x.duration_ms})),active_battles:after.battles_active,stars:after.star,failures:failures.length,elapsed_s:Math.round(record.elapsed_ms/1000)}));
  if(m.game_conclusion){console.log('GAME_CONCLUSION',JSON.stringify(m.game_conclusion));break;}
 }
-const result={source_commit:'7f3106b5e0dd5ac26ec84107cfea075f2f92a9c8',mode:'ENGINE_ONLY_AI_VS_AI',limitations:['Uses production engine modules including political phase and commander events, but DOM battle presentation, notifications, human-tactic choice and localStorage persistence are not simulated','Neither side is a human player; player flag only defines action order and UI role','Defender AI tactic and retreat decisions are used; attacker selects normal attack'],player,seed,requested_months:maxMonths,completed_months:fs.readFileSync(checkpointPath,'utf8').trim().split('\n').filter(Boolean).length,duration_ms:Date.now()-startTime,counts,battleStats,invariantChecks,failures,last:observe(),checkpointPath};
+const result={source_commit:'26ea25b0f2fb6ce46cbba3734e1825b0bff1b603',mode:'ENGINE_ONLY_AI_VS_AI',limitations:['Uses production engine modules including political phase and commander events, but DOM battle presentation, notifications, human-tactic choice and localStorage persistence are not simulated','Neither side is a human player; player flag only defines action order and UI role','Defender AI tactic and retreat decisions are used; attacker selects normal attack'],player,seed,requested_months:maxMonths,completed_months:fs.readFileSync(checkpointPath,'utf8').trim().split('\n').filter(Boolean).length,duration_ms:Date.now()-startTime,counts,battleStats,jointRankAttacks,invariantChecks,failures,last:observe(),checkpointPath};
 fs.writeFileSync(summaryPath,JSON.stringify(result,null,2)+'\n');
 console.log('SUMMARY',JSON.stringify(result));
 if(failures.some(x=>x.stage.startsWith('invariant')))process.exitCode=2;
+if(jointRankAttacks.length)process.exitCode=3;

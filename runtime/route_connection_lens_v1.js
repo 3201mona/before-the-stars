@@ -49,15 +49,22 @@
     <label class="route-lens-source-label" for="route-lens-source">起点都市を固定</label>
     <select id="route-lens-source">${cityIds.map(id=>`<option value="${esc(id)}">${esc(name(id))}</option>`).join('')}</select>
     <div class="route-lens-help">地図上で目的都市を選ぶと、海路がある場合だけ青い点線を表示します。</div>
-    <div class="route-lens-key"><span><i class="route-key-land"></i>直接陸路</span><span><i class="route-key-sea"></i>選択先への海路</span><span class="route-key-port">● 港湾</span><span class="route-key-coast">▲ 上陸</span></div>
+    <div class="route-lens-key"><span><i class="route-key-land"></i>直接陸路</span><span><i class="route-key-sea"></i>選択先への海路</span><span class="route-key-port">● 港湾</span><span class="route-key-inland">● 内陸</span><span class="route-key-coast">▲ 上陸</span></div>
     <div class="route-lens-result" aria-live="polite"><div class="route-lens-kicker">CONNECTION</div><div id="route-lens-route-title"></div><div class="route-lens-results"><span id="route-lens-land-result"></span><span id="route-lens-sea-result"></span></div><p id="route-lens-detail"></p></div>
     <p class="route-lens-caution">※地形上の接続を表示。現時点の支配・封鎖・制海権・港湾稼働・命令可否は判定しません。</p>`;
   infoTabs.insertAdjacentElement('afterend',dock);
 
+  const strategicScore=political.querySelector('#pv-strategic');
   const strategicNote=political.querySelector('#pv-strategic-note');
   const politicalButton=document.createElement('button');politicalButton.id='route-lens-open-political';
   politicalButton.type='button';politicalButton.textContent='↗ 戦略地図を見る';politicalButton.title='議会を閉会せず、現在の戦略盤と都市接続を確認';
-  if(strategicNote)strategicNote.insertAdjacentElement('afterend',politicalButton);
+  if(strategicScore){
+    // The score rows are re-rendered every political update. Keep the link in a
+    // separate sibling cell so its position and click handler survive updates.
+    const scoreRow=document.createElement('div');scoreRow.className='route-lens-score-row';
+    strategicScore.insertAdjacentElement('beforebegin',scoreRow);
+    scoreRow.append(strategicScore,politicalButton);
+  }else if(strategicNote)strategicNote.insertAdjacentElement('afterend',politicalButton);
 
   const layer=svg('g',{id:'route-lens-layer','aria-label':'都市間接続ハイライト',display:'none'});
   map.appendChild(layer);

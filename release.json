@@ -1,9 +1,9 @@
 {
-  "public_version": "1.0.0-beta.17",
-  "label": "Ver.1.0 β17",
+  "public_version": "1.0.0-beta.18",
+  "label": "Ver.1.0 β18",
   "release_status": "published",
-  "release_date": "2026-10-31",
+  "release_date": "2026-11-02",
   "entry": "index.html",
   "game": "runtime/game.html",
-  "patch_id": "20261031-route-lens-bgm-shared-hq"
+  "patch_id": "20261102-joint-command-route-palette"
 }

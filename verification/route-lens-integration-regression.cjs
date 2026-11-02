@@ -53,7 +53,11 @@ assert.match(routeSource,/route-lens-tab-map/,'通常戦略盤とのタブ切り
 assert.match(routeSource,/route-lens-tab-connections/,'陸海接続モードへのタブ切り替え');
 assert.match(routeSource,/infoTabs\.appendChild\(openButton\)/,'指令用の小ボタンを右の情報タブ列に配置');
 assert.match(routeSource,/infoTabs\.insertAdjacentElement\('afterend',dock\)/,'詳細パネルはタブ列の外に配置');
-assert.match(routeSource,/strategicNote\.insertAdjacentElement\('afterend',politicalButton\)/,'政治用ボタンを戦略支配説明欄の後に配置');
+assert.match(routeSource,/political\.querySelector\('#pv-strategic'\)/,'戦略支配の★3行を移動先として取得');
+assert.match(routeSource,/scoreRow\.append\(strategicScore,politicalButton\)/,'政治用リンクを★3行の右側に置く');
+assert.match(routeSource,/strategicScore\.insertAdjacentElement\('beforebegin',scoreRow\)/,'注釈との間に空白行を増やさず既存の戦略支配欄を包む');
+assert.match(routeCSS,/\.route-lens-score-row\{display:grid;grid-template-columns:minmax\(0,1fr\) max-content/,'★3行と右リンクの2カラム');
+assert.match(routeCSS,/#route-lens-open-political\{align-self:center;justify-self:end/,'リンクは3行中央の右端');
 assert.doesNotMatch(routeSource,/header\.appendChild\(politicalButton\)/,'政治見出しの間延び配置を再発させない');
 assert.match(routeCSS,/info-tabs\.route-lens-tabs/,'4カラムの情報タブ配置');
 assert.match(routeCSS,/route-lens-political-bar/,'閲覧中のみ小さな議会へ戻るバーを表示');

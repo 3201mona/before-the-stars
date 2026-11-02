@@ -1,4 +1,5 @@
 /* Read-only route lens, visually secondary to the existing approved strategy map. */
+:root{--route-lens-port:#54dbea;--route-lens-inland:#f2eee5;--route-lens-landing:#ff9f5b}
 .panel .info-tabs.route-lens-tabs{grid-template-columns:repeat(3,minmax(0,1fr)) 82px!important;gap:3px;align-items:stretch}
 #route-lens-open-command{display:flex;align-items:center;justify-content:center;gap:4px;min-width:0!important;width:auto;margin:0;padding:7px 4px!important;border:1px solid #9c8a63!important;border-radius:4px;background:#213642;color:#e7d6a3;font:800 13px system-ui,'Yu Gothic',sans-serif;white-space:nowrap;letter-spacing:.02em;box-shadow:inset 2px 0 #bf9f63;cursor:pointer}
 #route-lens-open-command:hover,#route-lens-open-command[aria-pressed=true]{background:#315364;color:#fff0bf;border-color:#d7b777!important}
@@ -28,14 +29,17 @@ body.route-lens-political #field-army-modal .army-detail-layout{grid-template-co
 .route-lens-help{font-size:11px;line-height:1.6;color:#a8c2c7;margin:10px 0}
 .route-lens-key{display:flex;flex-wrap:wrap;gap:7px 12px;border-top:1px solid #3c5965;border-bottom:1px solid #3c5965;padding:9px 0;margin:11px 0;font-size:10px;color:#c1d7d8}
 .route-lens-key span{display:flex;align-items:center;gap:5px}
-.route-lens-key i{display:inline-block;width:21px;height:0;border-top:3px solid #e8c16d}.route-lens-key .route-key-sea{border-top-color:#79dfed;border-top-style:dashed}.route-key-port{color:#78d4e2}.route-key-coast{color:#efb27d}
+.route-lens-key i{display:inline-block;width:21px;height:0;border-top:3px solid #e8c16d}.route-lens-key .route-key-sea{border-top-color:#79dfed;border-top-style:dashed}.route-lens-key .route-key-port{color:var(--route-lens-port)}.route-lens-key .route-key-inland{color:var(--route-lens-inland)}.route-lens-key .route-key-coast{color:var(--route-lens-landing)}
 .route-lens-result{border:1px solid #4e747b;border-radius:6px;background:#0e2430;padding:12px}
 #route-lens-route-title{font-size:17px;font-weight:900;color:#f6e9ce;line-height:1.4;margin-bottom:9px}
 .route-lens-results{display:flex;flex-wrap:wrap;gap:6px}.route-lens-results span{display:inline-flex;padding:8px 9px;border-radius:4px;font-size:11px;font-weight:800;border:1px solid #647c81}
 .route-badge-land{background:#453c29;color:#f0d28e;border-color:#a58b50!important}.route-badge-sea{background:#1b4b57;color:#b2ebf1;border-color:#5794a0!important}.route-badge-muted{background:#25353c;color:#9daeb0;border-color:#4b6470!important}
 #route-lens-detail{margin:9px 0 0;font-size:11.5px;color:#c0d6d6;line-height:1.7}
 .route-lens-caution{margin:9px 0 1px;font-size:10px;color:#8caab2;line-height:1.6}
-#route-lens-open-political{align-self:flex-end;min-width:0!important;margin:-3px 1px 6px!important;padding:3px 2px!important;border:0!important;border-bottom:1px solid #64808a!important;border-radius:0!important;background:transparent!important;color:#b5d6dc!important;font:700 11.5px system-ui,'Yu Gothic',sans-serif!important;line-height:1.5!important;letter-spacing:.02em;white-space:nowrap;cursor:pointer}
+.pv2 .route-lens-score-row{display:grid;grid-template-columns:minmax(0,1fr) max-content;align-items:center;column-gap:5px;min-width:0}
+.pv2 .route-lens-score-row #pv-strategic{min-width:0;margin-bottom:7px}
+.pv2 .route-lens-score-row .strategic-score div{padding:6px 0;font-size:clamp(14px,1.6vw,17px);white-space:nowrap}
+#route-lens-open-political{align-self:center;justify-self:end;min-width:0!important;margin:0 0 6px!important;padding:3px 1px!important;border:0!important;border-bottom:1px solid #64808a!important;border-radius:0!important;background:transparent!important;color:#b5d6dc!important;font:700 11px system-ui,'Yu Gothic',sans-serif!important;line-height:1.5!important;letter-spacing:0;white-space:nowrap;cursor:pointer}
 #route-lens-open-political:hover,#route-lens-open-political:focus-visible{color:#f3d793!important;border-bottom-color:#f3d793!important;text-decoration:none;outline-offset:3px}
 body.route-lens-mode #game-map{cursor:crosshair}
 body.route-lens-mode:not(.route-lens-political) .panel> :not(#route-lens-dock):not(h1):not(.provisional):not(.info-tabs){opacity:.62}
@@ -46,15 +50,12 @@ body.route-lens-mode:not(.route-lens-political) .panel> :not(#route-lens-dock):n
 #game-map #route-lens-layer .route-lens-sea-line{fill:none;stroke:#77e6f6;stroke-width:6;stroke-dasharray:14 10;stroke-linecap:round;pointer-events:none;filter:drop-shadow(0 0 4px #6cd4ee)}
 #game-map #route-lens-layer .route-lens-marker{cursor:pointer;pointer-events:all}
 #game-map #route-lens-layer .route-lens-hit{fill:transparent;stroke:none;pointer-events:all}
-#game-map #route-lens-layer .route-lens-dot{fill:#93a9b1;stroke:#102736;stroke-width:2.8;filter:drop-shadow(0 1px 2px #06131e)}
-#game-map #route-lens-layer .route-lens-marker.port .route-lens-dot{fill:#82cbd6}
-#game-map #route-lens-layer .route-lens-marker.landing .route-lens-dot{fill:#ebac78;stroke:#412a23}
-#game-map #route-lens-layer .route-lens-marker.other .route-lens-dot{opacity:.75}
-#game-map #route-lens-layer .route-lens-marker.neighbor .route-lens-dot{fill:#ffe6a1;stroke:#3a2d16}
-#game-map #route-lens-layer .route-lens-marker.origin .route-lens-dot{fill:#ffedb0;stroke:#2b2c22;stroke-width:4}
-#game-map #route-lens-layer .route-lens-marker.target .route-lens-dot{fill:#9effff;stroke:#164152;stroke-width:4}
+#game-map #route-lens-layer .route-lens-dot{fill:var(--route-lens-inland);stroke:#102736;stroke-width:2.8;opacity:1;filter:drop-shadow(0 1px 2px #06131e)}
+#game-map #route-lens-layer .route-lens-marker.port .route-lens-dot{fill:var(--route-lens-port)}
+#game-map #route-lens-layer .route-lens-marker.inland .route-lens-dot{fill:var(--route-lens-inland)}
+#game-map #route-lens-layer .route-lens-marker.landing .route-lens-dot{fill:var(--route-lens-landing)}
 #game-map #route-lens-layer .route-lens-ring{fill:none;stroke:#fcedb9;stroke-width:3;pointer-events:none}
 #game-map #route-lens-layer .route-lens-marker.target .route-lens-ring{stroke:#a7f5ff}
-#game-map #route-lens-layer .route-lens-marker:focus-visible .route-lens-dot,#game-map #route-lens-layer .route-lens-marker:hover .route-lens-dot{stroke:#fff;stroke-width:4;opacity:1}
+#game-map #route-lens-layer .route-lens-marker:focus-visible .route-lens-dot,#game-map #route-lens-layer .route-lens-marker:hover .route-lens-dot{filter:drop-shadow(0 0 5px #fff9d1)}
 #game-map #route-lens-layer .route-lens-city-name{font-size:15px;font-weight:900;font-family:'Yu Gothic',Meiryo,sans-serif;fill:#fff8df;stroke:#061c2a;stroke-width:4px;paint-order:stroke;pointer-events:none}
 @media(max-width:1024px){#route-lens-dock{padding:10px}.route-lens-heading strong{font-size:17px}#route-lens-route-title{font-size:15px}}

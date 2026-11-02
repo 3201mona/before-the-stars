@@ -55,6 +55,16 @@
     })[0]||null;
   }
   const selectDefenderLeader=selectBattlefieldLeader;
+  // One shared command-authority rule for initial attacks, the player UI,
+  // both AIs and reinforcements. The senior must lead a participating army.
+  function canCoordinateJointAttack(state,armyIds,leaderArmyId=null){
+    const ids=[...new Set(armyIds||[])];
+    if(!ids.length||ids.some(id=>!state.field_armies?.[id]))return false;
+    if(ids.length===1)return true;
+    const leaderId=leaderArmyId||selectBattlefieldLeader(state,ids),leader=state.field_armies?.[leaderId];
+    return ids.includes(leaderId)&&Number(leader?.manpower||0)>0&&
+      commanderRolePriority(state.commanders?.[leader.commander_id])>=2;
+  }
   function qualityFactor(force){
     return .70+Number(force.morale||0)/100*.15+Number(force.training||0)/100*.25+Number(force.equipment||0)/100*.20;
   }
@@ -130,7 +140,8 @@
     if(unopposed&&targetControl!==defenderFaction)fail('DEFENDER_REQUIRED');
     const originControl=controlPolicy.militaryStatus(state,args.origin_city_id,minimumGarrison).control;
 
-    const attackerLeader=args.leader_army_id&&attackerIds.includes(args.leader_army_id)?args.leader_army_id:attackerIds[0];
+    const attackerLeader=args.leader_army_id&&attackerIds.includes(args.leader_army_id)?args.leader_army_id:selectBattlefieldLeader(state,attackerIds)||attackerIds[0];
+    if(!canCoordinateJointAttack(state,attackerIds,attackerLeader))fail('BATTLE_JOINT_LEADER_REQUIRED');
     const defenderLeader=selectDefenderLeader(state,defenderIds);
     const startMinimum=Number(config.attack_start_minimum_manpower??100);
     if(attackerIds.some(id=>Number(state.field_armies?.[id]?.manpower||0)<startMinimum))fail('BATTLE_ATTACK_MANPOWER_TOO_LOW');
@@ -281,7 +292,17 @@
   function reinforcementIds(battle,role){return [...new Set((role==='attacker'?battle.attacker_reinforcement_ids:battle.defender_reinforcement_ids)||[])];}
   function reinforcementOriginMap(battle){battle.reinforcement_origins ||= {};return battle.reinforcement_origins;}
   function canLeadJointReinforcement(state,armyIds){
-    return (armyIds||[]).some(id=>commanderRolePriority(state.commanders?.[state.field_armies?.[id]?.commander_id])>=2);
+    return canCoordinateJointAttack(state,armyIds);
+  }
+  function canJoinBattleReinforcement(state,battle,armyIds){
+    const ids=[...new Set(armyIds||[])],faction=state.field_armies?.[ids[0]]?.faction;
+    if(!battle||!ids.length||ids.some(id=>state.field_armies?.[id]?.faction!==faction)||
+       ![battle.attacker_faction,battle.defender_faction].includes(faction))return false;
+    // Simultaneous reinforcement needs its own senior leader, as before.
+    if(ids.length>1&&!canLeadJointReinforcement(state,ids))return false;
+    // Even one later reinforcement must not create an ordinary-only attacking group.
+    return faction!==battle.attacker_faction||
+      canCoordinateJointAttack(state,[...(battle.attacker_army_ids||[]),...ids]);
   }
   function reinforceBattle(state,battleId,armyIds,cityState,armyEngine){
     const battle=state.battles?.[battleId];if(!battle||!['active','awaiting_continuation'].includes(battle.status)||(battle.history||[]).length<1)fail('BATTLE_NOT_REINFORCEABLE');
@@ -296,7 +317,7 @@
       routeMode='SEA';routeProfile=naval.seaRouteProfile(cityState,origin.geography.sea_zone_id,target.geography.sea_zone_id,faction,'SEA_TRANSPORT',periodKey);
     }
     for(const id of ids){const army=state.field_armies?.[id];if(!army)fail('ARMY_NOT_FOUND');if(army.faction!==faction)fail('REINFORCEMENT_FACTION_INVALID');if(army.location_city_id!==originCityId)fail('REINFORCEMENT_ORIGIN_MISMATCH');if(army.acted_this_month)fail('ARMY_ALREADY_ACTED');if(army.battle_id)fail('ARMY_IN_OTHER_BATTLE');if(Number(army.manpower||0)<50||Number(army.morale||0)<10)fail('REINFORCEMENT_NOT_COMBAT_CAPABLE');}
-    if(ids.length>1&&!canLeadJointReinforcement(state,ids))fail('REINFORCEMENT_JOINT_LEADER_REQUIRED');
+    if(!canJoinBattleReinforcement(state,battle,ids))fail('REINFORCEMENT_JOINT_LEADER_REQUIRED');
     const controlPolicy=(typeof module==='object'&&module.exports)?require('./city_control_policy_v1.js'):globalThis.CityControlPolicy;
     const originVerified=controlPolicy.militaryStatus(state,originCityId,100).control===faction?faction:null;
     let next;if(armyEngine?.spendCommand)next=armyEngine.spendCommand(state,faction,'BATTLE_REINFORCEMENT',1);else{next=copy(state);if((Number(next.factions?.[faction]?.commands_remaining)||0)<1)fail('COMMANDS_EXHAUSTED');next.factions[faction].commands_remaining-=1;}
@@ -452,5 +473,5 @@
     armyEngine.appendAction(next,{type:'BATTLE_DEFENDER_WITHDREW',battle_id:battleId,city_id:battle.city_id,faction:battle.defender_faction,destination_city_id:plan.destination_city_id,transit_loss:transit.transit_loss,abandoned_garrison_manpower:abandonedGarrison});
     return{state:next,battle:copy(next.battles[battleId]),withdrawn:true,withdrawal:copy(next.battles[battleId].withdrawal)};
   }
-  return{prepareBattle,resolveBattle,continueBattle,withdrawBattle,withdrawDefenderBeforeBattle,reinforceBattle,canLeadJointReinforcement,selectBattlefieldLeader,selectDefenderLeader,selectRetreatCity,selectRetreatPlan,retreatDestinationStatus,buildLandRetreatRoutes,buildSeaRetreatRoutes,sortRetreatRoutes,applyRetreatPlan,forceSummary,basePower,qualityFactor,commanderFactor,appropriateManpower,battlefieldTacticsFactor,moraleCombatState,armyIndividualPower,resultBand,chooseEnemyTactic};
+  return{prepareBattle,resolveBattle,continueBattle,withdrawBattle,withdrawDefenderBeforeBattle,reinforceBattle,canCoordinateJointAttack,canJoinBattleReinforcement,canLeadJointReinforcement,selectBattlefieldLeader,selectDefenderLeader,selectRetreatCity,selectRetreatPlan,retreatDestinationStatus,buildLandRetreatRoutes,buildSeaRetreatRoutes,sortRetreatRoutes,applyRetreatPlan,forceSummary,basePower,qualityFactor,commanderFactor,appropriateManpower,battlefieldTacticsFactor,moraleCombatState,armyIndividualPower,resultBand,chooseEnemyTactic};
 });

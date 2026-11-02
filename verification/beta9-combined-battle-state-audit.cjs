@@ -1,5 +1,5 @@
 'use strict';
-// Deterministic, bounded sequence audit of the *unchanged* beta9 engine.
+// Deterministic, bounded sequence audit of battle-state continuity.
 // The city-capture and forced-end variations explicitly insert the aftermath
 // of other commands; they are not claims of full AI-played conquest.
 const assert=require('node:assert/strict');
@@ -54,6 +54,9 @@ function validate(s,stage){
 function fixture(blockader,targetMode){
   const sc=blockader==='PATRIOT'?{...plans[0]}:{...plans[1],target:'MA_04'};
   const {m,c}=mk(sc,89);
+  // The ordinary support army is not part of this fixture. Leaving it behind
+  // at the reinforcement origin prevents the deliberate source-city capture.
+  delete m.field_armies[sc.reinforcement];
   // British HQ may occupy the Patriot target in the generic fixture.
   if(blockader==='BRITISH')m.field_armies[sc.attackerHQ].location_city_id='NY_04';
   for(const [id,city] of Object.entries(c.cities))city.politics.military_control=P.militaryControl(m,id,PC);
@@ -71,7 +74,10 @@ function fixture(blockader,targetMode){
 }
 
 function reinforce(f,role,mode){
-  const id=role==='ATTACKER'?f.sc.reinforcement:f.sc.enemyReinforcement;
+  // A second attacking field army must arrive under a participating senior
+  // commander. Use the fixture's existing HQ army for this legal reinforcement;
+  // the defender's automatic grouping rule remains independent.
+  const id=role==='ATTACKER'?f.sc.attackerHQ:f.sc.enemyReinforcement;
   const faction=role==='ATTACKER'?f.blockader:other(f.blockader);
   const target=f.c.cities[f.sc.target];
   const landOrigin=f.blockader==='PATRIOT'?(role==='ATTACKER'?'MA_04':'CT_03'):(role==='ATTACKER'?'CT_03':'RI_01');
@@ -186,14 +192,15 @@ for(const blockader of ['PATRIOT','BRITISH']){
 for(const faction of ['PATRIOT','BRITISH']){
   const sc=faction==='PATRIOT'?{...plans[0],origin:'RI_01',target:'CT_02'}:{...plans[1],origin:'MA_03',target:'CT_02'};
   const {m,c}=mk(sc,91);
+  delete m.field_armies[sc.reinforcement];
   if(faction==='BRITISH')m.field_armies[sc.attackerHQ].location_city_id='NY_04';
-  m.field_armies[sc.reinforcement].location_city_id=faction==='PATRIOT'?'NY_02':'VA_04';
+  m.field_armies[sc.attackerHQ].location_city_id=faction==='PATRIOT'?'NY_02':'VA_04';
   for(const [id,city]of Object.entries(c.cities))city.politics.military_control=P.militaryControl(m,id,PC);
   const p=B.prepareBattle(m,{origin_city_id:sc.origin,city_id:sc.target,attacker_army_ids:[sc.attacker],leader_army_id:sc.attacker,route_type:'LANDING_ATTACK'},c,CFG);
   const f={sc,s:p.state,c,battleId:p.battle.id,blockader:faction};
   f.s.battles[f.battleId].status='awaiting_continuation';f.s.battles[f.battleId].history=[{result_band:'even'}];
   eq(p.battle.landing_access.mode,'COASTAL_LANDING','existing landing-only assault');
-  const out=B.reinforceBattle(f.s,f.battleId,[sc.reinforcement],c,E);
+  const out=B.reinforceBattle(f.s,f.battleId,[sc.attackerHQ],c,E);
   f.s=out.state;eq(out.arrival_access_reason,'NOT_A_PORT','landing-only shore reinf');
   validate(f.s,'landing-only '+faction);
   captureSource(f,sc.origin,other(faction));
@@ -275,7 +282,7 @@ for(const blockader of ['PATRIOT','BRITISH']){
   f.s.battles[second.battle.id].status='awaiting_continuation';
   f.s.battles[second.battle.id].history=[{result_band:'even'}];
   const navyId1=f.sc.reinforcement,navyId2='ARM_PAT_SCHUYLER';
-  f.s.field_armies[navyId1].location_city_id='NY_02';
+  f.s.field_armies[navyId1]={...clone(ctx.PHASE2_STATE_SEED.field_armies[navyId1]),location_city_id:'NY_02',acted_this_month:false,battle_id:null,morale:75};
   f.s.field_armies[navyId2]={...clone(ctx.PHASE2_STATE_SEED.field_armies[navyId2]),location_city_id:'NY_02',acted_this_month:false,battle_id:null,morale:75};
   f.s=B.reinforceBattle(f.s,f.battleId,[navyId1],f.c,E).state;
   const sea=B.reinforceBattle(f.s,second.battle.id,[navyId2],f.c,E);

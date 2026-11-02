@@ -6,7 +6,9 @@
 
 [公開サイト](https://3201mona.github.io/before-the-stars/) ｜ [遊び方・クレジット](https://3201mona.github.io/before-the-stars/about.html)
 
-**Ver.1.0 β17 / 2026-10-31公開**
+**Ver.1.0 β18 / 2026-11-02公開**
+
+β18では、共同攻撃と継続戦闘への援軍に共通の指揮系統ルールを適用し、プレイヤーと両陣営AIの判定を統一しました。接続マーカーの地形別配色を固定し、政治画面の「戦略地図を見る」を★表示の右側へ移動しました。詳細は [BETA18_RELEASE_REPORT.md](BETA18_RELEASE_REPORT.md) を参照してください。
 
 β17では、都市間の接続ハイライトと政治中の戦略盤閲覧を追加しました。初回政治フェーズのBGM無音を修正し、独立派・王党派に共通の総司令官生存リスク評価を導入しました。公開基準・検証範囲は [BETA17_RELEASE_REPORT.md](BETA17_RELEASE_REPORT.md) を参照してください。
 
