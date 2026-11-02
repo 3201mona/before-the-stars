@@ -9,7 +9,9 @@ const clone=x=>JSON.parse(JSON.stringify(x));
 let checks=0;
 function check(name,fn){fn();checks++;console.log('PASS',name);}
 function fixture(blockader='PATRIOT'){
-  const sc=blockader==='PATRIOT'?plans[0]:{...plans[1],target:'MA_04'};
+  // A continued offensive may receive a second army only under an actual
+  // senior commander, including on the British side of this naval fixture.
+  const sc=blockader==='PATRIOT'?plans[0]:{...plans[1],target:'MA_04',reinforcement:plans[1].attackerHQ};
   const {m,c}=mk(sc,57);
   if(blockader==='BRITISH')m.field_armies[sc.attackerHQ].location_city_id='NY_04';
   for(const id of [sc.reinforcement,sc.enemyReinforcement]){
