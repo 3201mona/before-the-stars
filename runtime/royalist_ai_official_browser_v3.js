@@ -1949,6 +1949,7 @@ function landingAssessment(m,c,f,ids,origin,target){
  return{allowed:true,reason:'LANDING_OPERATIONALLY_ACCEPTABLE',rate,lost,arrived,counter,hasEscape,targetDefenders,penalty,worst_stage:profile.worst_stage.key};
 }
 function attackCandidate(m,c,f,ids,origin,target,route,ctx){
+ if(!B.canCoordinateJointAttack(m,ids))return null;
  const landing=route==='LANDING_ATTACK'?landingAssessment(m,c,f,ids,origin,target):null;
  if(landing&&!landing.allowed)return null;
  if(ids.some(id=>!ready(m,m.field_armies[id])||B.isRetreatRecoveryAttackLocked?.(m,id)))return null;
