@@ -27,8 +27,9 @@ body.route-lens-political #field-army-modal .army-detail-layout{grid-template-co
 .route-lens-source-label{display:block;color:#d0bd8c;font-size:11px;font-weight:700;margin:0 0 6px}
 #route-lens-source{display:block;width:100%;color:#f7eddb;background:#183644;border:1px solid #6c929a;border-radius:5px;min-height:39px;padding:8px 10px;font:700 14px system-ui,'Yu Gothic',sans-serif}
 .route-lens-help{font-size:11px;line-height:1.6;color:#a8c2c7;margin:10px 0}
-.route-lens-key{display:flex;flex-wrap:wrap;gap:7px 12px;border-top:1px solid #3c5965;border-bottom:1px solid #3c5965;padding:9px 0;margin:11px 0;font-size:10px;color:#c1d7d8}
+.route-lens-key{display:flex;flex-wrap:wrap;gap:7px 12px;border-top:1px solid #3c5965;border-bottom:1px solid #3c5965;padding:9px 0;margin:11px 0;font-size:11px;color:#c1d7d8}
 .route-lens-key span{display:flex;align-items:center;gap:5px}
+.route-lens-key .route-symbol{font-size:17px;font-weight:900;line-height:1}
 .route-lens-key i{display:inline-block;width:21px;height:0;border-top:3px solid #e8c16d}.route-lens-key .route-key-sea{border-top-color:#79dfed;border-top-style:dashed}.route-lens-key .route-key-port{color:var(--route-lens-port)}.route-lens-key .route-key-inland{color:var(--route-lens-inland)}.route-lens-key .route-key-coast{color:var(--route-lens-landing)}
 .route-lens-result{border:1px solid #4e747b;border-radius:6px;background:#0e2430;padding:12px}
 #route-lens-route-title{font-size:17px;font-weight:900;color:#f6e9ce;line-height:1.4;margin-bottom:9px}
@@ -50,7 +51,7 @@ body.route-lens-mode:not(.route-lens-political) .panel> :not(#route-lens-dock):n
 #game-map #route-lens-layer .route-lens-sea-line{fill:none;stroke:#77e6f6;stroke-width:6;stroke-dasharray:14 10;stroke-linecap:round;pointer-events:none;filter:drop-shadow(0 0 4px #6cd4ee)}
 #game-map #route-lens-layer .route-lens-marker{cursor:pointer;pointer-events:all}
 #game-map #route-lens-layer .route-lens-hit{fill:transparent;stroke:none;pointer-events:all}
-#game-map #route-lens-layer .route-lens-dot{fill:var(--route-lens-inland);stroke:#102736;stroke-width:2.8;opacity:1;filter:drop-shadow(0 1px 2px #06131e)}
+#game-map #route-lens-layer .route-lens-dot{fill:var(--route-lens-inland);stroke:#102736;stroke-width:2.4;opacity:1;filter:drop-shadow(0 1px 2px #06131e)}
 #game-map #route-lens-layer .route-lens-marker.port .route-lens-dot{fill:var(--route-lens-port)}
 #game-map #route-lens-layer .route-lens-marker.inland .route-lens-dot{fill:var(--route-lens-inland)}
 #game-map #route-lens-layer .route-lens-marker.landing .route-lens-dot{fill:var(--route-lens-landing)}

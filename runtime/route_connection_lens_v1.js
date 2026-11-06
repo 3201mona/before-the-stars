@@ -49,7 +49,7 @@
     <label class="route-lens-source-label" for="route-lens-source">起点都市を固定</label>
     <select id="route-lens-source">${cityIds.map(id=>`<option value="${esc(id)}">${esc(name(id))}</option>`).join('')}</select>
     <div class="route-lens-help">地図上で目的都市を選ぶと、海路がある場合だけ青い点線を表示します。</div>
-    <div class="route-lens-key"><span><i class="route-key-land"></i>直接陸路</span><span><i class="route-key-sea"></i>選択先への海路</span><span class="route-key-port">● 港湾</span><span class="route-key-inland">● 内陸</span><span class="route-key-coast">▲ 上陸</span></div>
+    <div class="route-lens-key"><span><i class="route-key-land"></i>直接陸路</span><span><i class="route-key-sea"></i>選択先への海路</span><span class="route-key-port"><b class="route-symbol" aria-hidden="true">●</b> 港湾</span><span class="route-key-inland"><b class="route-symbol" aria-hidden="true">■</b> 内陸</span><span class="route-key-coast"><b class="route-symbol" aria-hidden="true">▲</b> 上陸</span></div>
     <div class="route-lens-result" aria-live="polite"><div class="route-lens-kicker">CONNECTION</div><div id="route-lens-route-title"></div><div class="route-lens-results"><span id="route-lens-land-result"></span><span id="route-lens-sea-result"></span></div><p id="route-lens-detail"></p></div>
     <p class="route-lens-caution">※地形上の接続を表示。現時点の支配・封鎖・制海権・港湾稼働・命令可否は判定しません。</p>`;
   infoTabs.insertAdjacentElement('afterend',dock);
@@ -94,10 +94,13 @@
     const landing=u.naval_class==='LANDING_ONLY',port=u.naval_class==='PORT';
     const group=svg('g',{class:`route-lens-marker ${from?'origin':to?'target':adj?'neighbor':'other'} ${port?'port':landing?'landing':'inland'}`,'data-route-city':id,role:'button',tabindex:'0','aria-label':`${name(id)}を目的地に選択`});
     const label=svg('title');label.textContent=`${name(id)}：${port?'港湾':landing?'上陸地点':'内陸'}${adj?'・直接陸路あり':''}`;group.appendChild(label);
-    group.appendChild(svg('circle',{cx:x,cy:y,r:12,class:'route-lens-hit'}));
-    if(landing)group.appendChild(svg('path',{d:`M${x},${y-6} L${x+5},${y+4} L${x-5},${y+4} Z`,class:'route-lens-dot'}));
-    else group.appendChild(svg('circle',{cx:x,cy:y,r:from?8:to?7:adj?5.5:3.2,class:'route-lens-dot'}));
-    if(from||to)group.appendChild(svg('circle',{cx:x,cy:y,r:from?14:12,class:'route-lens-ring'}));
+    group.appendChild(svg('circle',{cx:x,cy:y,r:16,class:'route-lens-hit'}));
+    // Shape encodes the city class independently of color. All three symbols
+    // are large enough to read when the full fifty-city map is displayed.
+    if(landing){const r=from?9:to?8:adj?7.5:7;group.appendChild(svg('path',{d:`M${x},${y-r} L${x+r},${y+r*.8} L${x-r},${y+r*.8} Z`,class:'route-lens-dot'}));}
+    else if(port)group.appendChild(svg('circle',{cx:x,cy:y,r:from?9.5:to?8.5:adj?6.8:4.8,class:'route-lens-dot'}));
+    else{const s=from?17:to?15:adj?12:9.5;group.appendChild(svg('rect',{x:x-s/2,y:y-s/2,width:s,height:s,rx:1.1,class:'route-lens-dot'}));}
+    if(from||to)group.appendChild(svg('circle',{cx:x,cy:y,r:from?16:14,class:'route-lens-ring'}));
     layer.appendChild(group);
     if(from||to||adj){
       const text=svg('text',{x:x+(x>1210?-14:14),y:y+(from?-17:to?24:-12),'text-anchor':x>1210?'end':'start',class:'route-lens-city-name'});

@@ -298,11 +298,10 @@
     const ids=[...new Set(armyIds||[])],faction=state.field_armies?.[ids[0]]?.faction;
     if(!battle||!ids.length||ids.some(id=>state.field_armies?.[id]?.faction!==faction)||
        ![battle.attacker_faction,battle.defender_faction].includes(faction))return false;
-    // Simultaneous reinforcement needs its own senior leader, as before.
+    // Command hierarchy applies to the armies in this single order, not to
+    // the cumulative battle roster. Individual relief is not a joint attack.
     if(ids.length>1&&!canLeadJointReinforcement(state,ids))return false;
-    // Even one later reinforcement must not create an ordinary-only attacking group.
-    return faction!==battle.attacker_faction||
-      canCoordinateJointAttack(state,[...(battle.attacker_army_ids||[]),...ids]);
+    return true;
   }
   function reinforceBattle(state,battleId,armyIds,cityState,armyEngine){
     const battle=state.battles?.[battleId];if(!battle||!['active','awaiting_continuation'].includes(battle.status)||(battle.history||[]).length<1)fail('BATTLE_NOT_REINFORCEABLE');
