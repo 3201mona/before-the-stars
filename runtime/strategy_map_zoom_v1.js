@@ -59,6 +59,18 @@
   }
   installLegacyLegendCover();
 
+  // The national information board is an SVG child, not a separate HTML HUD.
+  // Army flags and connection symbols are added later as sibling SVG layers;
+  // SVG paints later siblings on top regardless of CSS z-index. Keep the board
+  // last even when another runtime creates a layer after the initial render.
+  function keepPoliticalBoardFront(){
+    const board=$('political-situation-window');
+    if(board?.parentNode===map&&map.lastElementChild!==board)map.appendChild(board);
+  }
+  const boardLayerObserver=new MutationObserver(keepPoliticalBoardFront);
+  boardLayerObserver.observe(map,{childList:true});
+  keepPoliticalBoardFront();
+
   let scroller=$('strategy-map-scroll');
   if(!scroller){
     scroller=document.createElement('div');
@@ -83,6 +95,7 @@
     };
   }
   function pinPoliticalPanel(){
+    keepPoliticalBoardFront();
     const group=$('political-situation-window');
     if(!group)return;
     const scale=svgScale();

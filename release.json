@@ -1,9 +1,9 @@
 {
-  "public_version": "1.0.0-beta.18",
-  "label": "Ver.1.0 β18",
+  "public_version": "1.0.0-beta.19",
+  "label": "Ver.1.0 β19",
   "release_status": "published",
-  "release_date": "2026-11-02",
+  "release_date": "2026-11-06",
   "entry": "index.html",
   "game": "runtime/game.html",
-  "patch_id": "20261102-joint-command-route-palette"
+  "patch_id": "20261106-reinforcement-rules-shapes-hud"
 }
