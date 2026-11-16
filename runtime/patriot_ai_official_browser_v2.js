@@ -2028,7 +2028,7 @@ function operationalCandidates(m,c,f){
  rows.sort((a,b)=>b.score-a.score);
  return {profile:strategicCandidates(m,c,f,ctx),candidates:rows,choice:rows[0]||null};
 }
-function continuation(m,f){const month=`${m.calendar.year}-${String(m.calendar.month).padStart(2,'0')}`;const b=Object.values(m.battles||{}).find(b=>b.attacker_faction===f&&b.status==='active'&&b.last_resolution?.month!==month);return b?{type:'CONTINUE',battle_id:b.id,target:b.city_id,free_decision:true}:null;}
+function continuation(m,f){const month=`${m.calendar.year}-${String(m.calendar.month).padStart(2,'0')}`;const b=Object.values(m.battles||{}).find(b=>b.attacker_faction===f&&['active','awaiting_continuation'].includes(b.status)&&(b.history||[]).length>0&&b.last_resolution?.month!==month);return b?{type:'CONTINUE',battle_id:b.id,target:b.city_id,free_decision:true}:null;}
 function availableDefendersAt(m,id,f){return Object.values(m.field_armies||{}).filter(a=>a.faction===f&&a.location_city_id===id&&a.manpower>0&&!a.battle_id).reduce((n,a)=>n+a.manpower,0)+(m.garrisons?.[id]?.faction===f?Number(m.garrisons[id].manpower)||0:0);}
 module.exports={context,availableDefendersAt,operationalCandidates,strategicCandidates,fieldCandidates,cityValue,departure,reverseMovePenalty,continuation};
 };
