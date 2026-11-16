@@ -90,7 +90,7 @@
    const freeContinuation=(m)=>{
      const month=`${m.calendar?.year}-${String(m.calendar?.month||0).padStart(2,'0')}`;
      const battle=Object.values(m.battles||{}).find(b=>b.attacker_faction===faction&&
-       b.status==='active'&&(b.history||[]).length>0&&b.last_resolution?.month!==month);
+       ['active','awaiting_continuation'].includes(b.status)&&(b.history||[]).length>0&&b.last_resolution?.month!==month);
      return battle?{type:'CONTINUE',battle_id:battle.id,city:battle.city_id,target:battle.city_id,command_cost:0,strategic_reason:'CONTINUATION_FREE_MONTHLY_RESOLUTION'}:null;
    };
    api.available=function(m){return Boolean((originalAvailable&&originalAvailable(m))||(enemyTurn(m)&&continuing(m)));};
