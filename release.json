@@ -1,9 +1,9 @@
 {
-  "public_version": "1.0.0-beta.19",
-  "label": "Ver.1.0 β19",
+  "public_version": "1.0.0-beta.20",
+  "label": "Ver.1.0 β20",
   "release_status": "published",
-  "release_date": "2026-11-06",
+  "release_date": "2026-11-16",
   "entry": "index.html",
   "game": "runtime/game.html",
-  "patch_id": "20261106-reinforcement-rules-shapes-hud"
+  "patch_id": "20261116-beta20-continuation"
 }
